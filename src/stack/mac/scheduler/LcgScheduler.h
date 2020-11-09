@@ -15,6 +15,7 @@
 
 /// forward declarations
 class LteSchedulerUeUl;
+
 class LteMacPdu;
 /**
  * @class LcgScheduler
@@ -63,6 +64,7 @@ class LcgScheduler
 
     /// MAC module, used to get parameters from NED
     LteMacUe *mac_;
+    LteMacEnb* macenb_;
 
     /// Associated LteSchedulerUeUl (it is the one who creates the LteScheduler)
     LteSchedulerUeUl* ueScheduler_;
@@ -85,6 +87,7 @@ class LcgScheduler
      * Default constructor.
      */
     LcgScheduler(LteMacUe * mac);
+    LcgScheduler(LteMacEnb* mac);
 
     /**
      * Destructor.

@@ -11,6 +11,8 @@
 #define _LTE_LTEMACBASE_H_
 
 #include "common/LteCommon.h"
+#include "stack/mac/packet/LteSidelinkGrant.h"
+#include "stack/mac/packet/LteMacPdu.h"
 
 class LteHarqBufferTx;
 class LteHarqBufferRx;
@@ -55,18 +57,7 @@ class LteMacBase : public cSimpleModule
     friend class LteHarqBufferTxD2D;
     friend class LteHarqBufferRxD2D;
 
-  protected:
-
-    unsigned int totalOverflowedBytes_;
-    simsignal_t macBufferOverflowDl_;
-    simsignal_t macBufferOverflowUl_;
-    simsignal_t macBufferOverflowD2D_;
-    simsignal_t receivedPacketFromUpperLayer;
-    simsignal_t receivedPacketFromLowerLayer;
-    simsignal_t sentPacketToUpperLayer;
-    simsignal_t sentPacketToLowerLayer;
-    simsignal_t measuredItbs_;
-
+public:
     /*
      * Data Structures
      */
@@ -77,7 +68,10 @@ class LteMacBase : public cSimpleModule
      */
     cGate* up_[2];     /// RLC <--> MAC
     cGate* down_[2];   /// MAC <--> PHY
-
+    cGate* control_OUT;
+    cGate* control_IN;
+    /// TTI self message
+    cMessage* ttiTick_;
     /*
      * MAC MIB Params
      */
@@ -85,8 +79,7 @@ class LteMacBase : public cSimpleModule
 
     int harqProcesses_;
 
-    /// TTI self message
-    cMessage* ttiTick_;
+
 
     /// MacNodeId
     MacNodeId nodeId_;
@@ -111,17 +104,10 @@ class LteMacBase : public cSimpleModule
 
     /// Harq Rx Buffers
     HarqRxBuffers harqRxBuffers_;
-
-    /* Connection Descriptors
-     * Holds flow related infos
-     */
-    std::map<MacCid, FlowControlInfo> connDesc_;
-
-    /* Incoming Connection Descriptors:
-     * a connection is stored at the first MAC SDU delivered to the RLC
-     */
-    std::map<MacCid, FlowControlInfo> connDescIn_;
-
+    unsigned int totalOverflowedBytes_;
+    bool ipBased;
+    int retrievedPacketId;
+    int retrievedCAMId;
     /* LCG to CID and buffers map - used for supporting LCG - based scheduler operations
      * TODO : delete/update entries on hand-over
      */
@@ -129,10 +115,28 @@ class LteMacBase : public cSimpleModule
     // Node Type;
     LteNodeType nodeType_;
 
+    /* Connection Descriptors
+     * Holds flow related infos
+     */
+    std::map<MacCid, LteControlInfo> connDesc_;
+
+    /* Incoming Connection Descriptors:
+     * a connection is stored at the first MAC SDU delivered to the RLC
+     */
+    std::map<MacCid, LteControlInfo> connDescIn_;
+
     // record the last TTI that HARQ processes for a given UE have been aborted (useful for D2D switching)
     std::map<MacNodeId, simtime_t> resetHarq_;
+    simsignal_t macBufferOverflowDl_;
+    simsignal_t macBufferOverflowUl_;
+    simsignal_t macBufferOverflowD2D_;
+    simsignal_t receivedPacketFromUpperLayer;
+    simsignal_t receivedPacketFromLowerLayer;
+    simsignal_t sentPacketToUpperLayer;
+    simsignal_t sentPacketToLowerLayer;
+    simsignal_t measuredItbs_;
 
-  public:
+public:
 
     /**
      * Initializes MAC Buffers
@@ -190,10 +194,10 @@ class LteMacBase : public cSimpleModule
     }
 
     // Returns connection descriptors
-    std::map<MacCid, FlowControlInfo>& getConnDesc()
-    {
+    std::map<MacCid, LteControlInfo>& getConnDesc()
+                    {
         return connDesc_;
-    }
+                    }
 
     // Returns the harq tx buffers
     HarqTxBuffers* getHarqTxBuffers()
@@ -245,7 +249,7 @@ class LteMacBase : public cSimpleModule
         return false;
     }
 
-  protected:
+public:
 
     virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
 
@@ -297,6 +301,7 @@ class LteMacBase : public cSimpleModule
      * @param pkt Packet to send
      */
     void sendUpperPackets(cPacket* pkt);
+    void sendPDULower(LteMacPdu* pdu);
 
     /*
      * Functions to be redefined by derivated classes
@@ -351,6 +356,34 @@ class LteMacBase : public cSimpleModule
 
     /// Lower Layer Handler
     virtual void fromPhy(cPacket *pkt);
+
+    void setIpBased(bool ip)
+    {
+        ip = true;
+    }
+    bool getIpBased()
+    {
+        return ipBased;
+    }
+
+    void setPacketId(int pid)
+    {
+        retrievedPacketId=pid;
+    }
+    int getPacketId()
+    {
+        return retrievedPacketId;
+    }
+
+    void setCAMId(int camid)
+    {
+        retrievedCAMId=camid;
+    }
+    int getCAMId()
+    {
+        return retrievedCAMId;
+    }
+
 };
 
 #endif

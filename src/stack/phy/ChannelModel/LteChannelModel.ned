@@ -51,7 +51,7 @@ simple LteRealisticChannelModel like LteChannelModelInterface
     double correlation_distance = default(50);
 
     // Carrier Frequency (GHz) -->
-    double carrierFrequency = default(2);
+    double carrierFrequency = default(2.6);
 
     // Target bler used to compute feedback -->
     double targetBler = default(0.001);

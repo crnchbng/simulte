@@ -113,9 +113,9 @@ class LteMacPdu : public LteMacPdu_Base
             cPacket *p1 = (cPacket *) *iter;
             cPacket *p2 = (cPacket *) *iterOther;
             if(p1->getControlInfo() == NULL && p2->getControlInfo() != NULL){
-                FlowControlInfo * fci = dynamic_cast<FlowControlInfo *> (p2->getControlInfo());
+                LteControlInfo * fci = dynamic_cast<LteControlInfo *> (p2->getControlInfo());
                 if(fci){
-                    p1->setControlInfo(new FlowControlInfo(*fci));
+                    p1->setControlInfo(new LteControlInfo(*fci));
                 } else {
                     throw cRuntimeError("LteMacPdu.h::Unknown type of control info in SDU list!");
                 }
@@ -154,7 +154,7 @@ class LteMacPdu : public LteMacPdu_Base
         // delete the SDU queue
         // (since it is derived of cPacketQueue, it will automatically delete all contained SDUs)
 
-        // ASSERT(sduList_->getOwner() == this); // should not throw an exception in a destructor
+        ASSERT(sduList_->getOwner() == this); // should not throw an exception in a destructor
         drop(sduList_);
         delete sduList_;
 

@@ -18,19 +18,10 @@
 
 class AmRxQueue : public cSimpleModule
 {
-  protected:
-
+protected:
+    FlowControlInfo* flowControlInfo_;
     //! Receiver window descriptor
     RlcWindowDesc rxWindowDesc_;
-
-    //! Minimum time between two consecutive ack messages
-    simtime_t ackReportInterval_;
-
-    //! The time when the last ack message was sent.
-    simtime_t lastSentAck_;
-
-    //! Buffer status report Interval
-    simtime_t statusReportInterval_;
 
     //! SDU reconstructed at the beginning of the Receiver buffer
     int firstSdu_;
@@ -40,6 +31,9 @@ class AmRxQueue : public cSimpleModule
 
     //! AM PDU buffer
     cArray pduBuffer_;
+    //Statistics
+    static unsigned int totalCellRcvdBytes_;
+    unsigned int totalRcvdBytes_;
 
     //! AM PDU Received vector
     /** For each AM PDU a received status variable is kept.
@@ -51,14 +45,6 @@ class AmRxQueue : public cSimpleModule
      */
     std::vector<bool> discarded_;
 
-    /*
-     * FlowControlInfo matrix : used for CTRL messages generation
-     */
-    FlowControlInfo* flowControlInfo_;
-
-    //Statistics
-    static unsigned int totalCellRcvdBytes_;
-    unsigned int totalRcvdBytes_;
     simsignal_t rlcCellPacketLoss_;
     simsignal_t rlcPacketLoss_;
     simsignal_t rlcPduPacketLoss_;
@@ -67,8 +53,15 @@ class AmRxQueue : public cSimpleModule
     simsignal_t rlcCellThroughput_;
     simsignal_t rlcThroughput_;
     simsignal_t rlcPduThroughput_;
+    //! Minimum time between two consecutive ack messages
+    simtime_t ackReportInterval_;
 
-  public:
+    //! The time when the last ack message was sent.
+    simtime_t lastSentAck_;
+
+    //! Buffer status report Interval
+    simtime_t statusReportInterval_;
+public:
 
     AmRxQueue();
 
@@ -83,7 +76,7 @@ class AmRxQueue : public cSimpleModule
     //initialize
     void initialize();
 
-  protected:
+protected:
 
     //! Send the RLC SDU stored in the buffer to the upper layer
     /** Note that, the buffer contains a set of RLC PDU. At most,

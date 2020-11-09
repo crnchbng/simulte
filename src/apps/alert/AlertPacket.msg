@@ -14,5 +14,7 @@
 packet AlertPacket
 {
     unsigned int sno;
+    bool ipBased;
+    int pktId;
     simtime_t timestamp;
 }

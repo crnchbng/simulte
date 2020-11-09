@@ -63,7 +63,21 @@ class ExtCell;
 #define RELAY_MIN_ID 257
 #define RELAY_MAX_ID 1023
 #define UE_MIN_ID 1025
-#define UE_MAX_ID 65535
+#define UE_MAX_ID 8000
+#define RSUEnB_MIN_ID 8001
+#define RSUEnB_MAX_ID 8050
+#define RSUUE_MIN_ID 8051
+#define RSUUE_MAX_ID 8100
+
+///CAM awareness distance
+#define CAM_AWARENESS_DISTANCE_HIGHWAY 200
+#define CAM_AWARENESS_DISTANCE_TUNNEL 100
+#define RSUEnB_RANGE 200
+#define RSUUE_RANGE 100
+
+//cell capacity
+#define CELLCAPACITYURBANMACRO 69
+
 
 /// Max Number of Codewords
 #define MAX_CODEWORDS 2
@@ -150,7 +164,7 @@ enum GateDirection
 /// Lte Traffic Classes
 enum LteTrafficClass
 {
-    CONVERSATIONAL, STREAMING, INTERACTIVE, BACKGROUND, UNKNOWN_TRAFFIC_TYPE
+    CONVERSATIONAL, STREAMING, INTERACTIVE, BACKGROUND,CAM, ALERT, UNKNOWN_TRAFFIC_TYPE
 };
 
 /// Scheduler grant type
@@ -190,6 +204,16 @@ enum LteD2DMode
     IM, DM
 };
 
+enum LteSidelinkMode{
+    MODE3, MODE4
+};
+
+enum LteRrcState{
+    RRC_IDLE, RRC_CONN
+};
+
+
+
 /*************************
  *     Applications      *
  *************************/
@@ -203,6 +227,7 @@ enum ApplicationType
     FTP,
     GAMING,
     FULLBUFFER,
+    GEONET,
     UNKNOWN_APP
 };
 
@@ -219,6 +244,7 @@ const ApplicationTable applications[] = {
     ELEM(CBR),
     ELEM(FTP),
     ELEM(FULLBUFFER),
+    ELEM(GEONET),
     ELEM(UNKNOWN_APP)
 };
 
@@ -228,7 +254,7 @@ const ApplicationTable applications[] = {
 
 enum SchedDiscipline
 {
-    DRR, PF, MAXCI, MAXCI_MB, MAXCI_OPT_MB, MAXCI_COMP, ALLOCATOR_BESTFIT, UNKNOWN_DISCIPLINE
+    DRR, PF, MAXCI, MAXCI_MB, MAXCI_OPT_MB, MAXCI_COMP, ALLOCATOR_BESTFIT, SBSPS, UNKNOWN_DISCIPLINE
 };
 
 struct SchedDisciplineTable
@@ -245,6 +271,7 @@ const SchedDisciplineTable disciplines[] = {
     ELEM(MAXCI_OPT_MB),
     ELEM(MAXCI_COMP),
     ELEM(ALLOCATOR_BESTFIT),
+    ELEM(SBSPS),
     ELEM(UNKNOWN_DISCIPLINE)
 };
 
@@ -464,7 +491,18 @@ enum LtePhyFrameType
     HANDOVERPKT,
     HARQPKT,
     GRANTPKT,
+    SIDELINKGRANT,
+    SYNC,
+    CSR,
+    CSRPKT,
     RACPKT,
+    MODE3GRANTREQUEST,
+    MODE3GRANTPKT,
+    RRCSETUPREQUESTPKT,
+    MIBSLREQUESTPKT,
+    DATAARRIVAL,
+    SIB21REQUESTPKT,
+    SCIPKT,
     D2DMODESWITCHPKT,
     UNKNOWN_TYPE
 };
@@ -480,7 +518,15 @@ const LtePhyFrameTable phytypes[] = {
     ELEM(BROADCASTPKT),
     ELEM(FEEDBACKPKT),
     ELEM(HANDOVERPKT),
+    ELEM(RRCSETUPREQUESTPKT),
     ELEM(GRANTPKT),
+    ELEM(SIDELINKGRANT),
+    ELEM(MODE3GRANTREQUEST),
+    ELEM(MODE3GRANTPKT),
+    ELEM(DATAARRIVAL),
+    ELEM(CSR),
+    ELEM(CSRPKT),
+    ELEM(SCIPKT),
     ELEM(D2DMODESWITCHPKT),
     ELEM(UNKNOWN_TYPE)
 };
@@ -494,6 +540,8 @@ enum LteNodeType
     ENODEB, /// eNodeB
     RELAY, /// Relay
     UE, /// UE
+    RSUEnB,
+    RSUUE,
     UNKNOWN_NODE_TYPE /// unknown
 };
 
@@ -838,6 +886,8 @@ typedef std::map<std::string, cMsgPar> ParameterMap;
 
 const std::string dirToA(Direction dir);
 const std::string d2dModeToA(LteD2DMode mode);
+const std::string LteSidelinkModeToA(LteSidelinkMode mode);
+const std::string LteRrcStateToA(LteRrcState state);
 const std::string allocationTypeToA(RbAllocationType type);
 const std::string modToA(LteMod mod);
 const std::string periodicityToA(FbPeriodicity per);

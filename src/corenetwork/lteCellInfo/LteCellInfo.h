@@ -69,18 +69,22 @@ class LteCellInfo : public cSimpleModule
     int numRbDl_;
     /// number of RB, UL
     int numRbUl_;
+    int numRbSl_;
     /// number of sub-carriers per RB, DL
     int rbyDl_;
     /// number of sub-carriers per RB, UL
     int rbyUl_;
+    int rbySl_;
     /// number of OFDM symbols per slot, DL
     int rbxDl_;
     /// number of OFDM symbols per slot, UL
     int rbxUl_;
+    int rbxSl_;
     /// number of pilot REs per RB, DL
     int rbPilotDl_;
     /// number of pilot REs per RB, UL
     int rbPilotUl_;
+    int rbPilotSl_;
     /// number of signaling symbols for RB, DL
     int signalDl_;
     /// number of signaling symbols for RB, UL
@@ -249,6 +253,9 @@ class LteCellInfo : public cSimpleModule
     }
     void lambdaInit(MacNodeId id, unsigned int i)
     {
+
+        EV<<"lambda Map: "<<lambdaMap_.size()<<endl;
+
         lambdaMap_[id].lambdaStart = i;
         lambdaMap_[id].index = lambdaMap_[id].lambdaStart;
         lambdaUpdate(id, lambdaMap_[id].index);
@@ -272,6 +279,10 @@ class LteCellInfo : public cSimpleModule
     {
         return &lambdaMap_;
     }
+
+
+
+
     //---------------------------------------------------------------
 
     void detachUser(MacNodeId nodeId);

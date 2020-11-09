@@ -18,45 +18,49 @@ module LteRlc {
         @display("i=block/transport");      
         string LteRlcUmType = default("LteRlcUm");                   // One of: "LteRlcUm", "LteRlcUmD2D"      
         bool d2dCapable;                                             // inherit the value from the parent module
+        
         string umType = d2dCapable ? "LteRlcUmD2D" : LteRlcUmType;
-
+        
     gates:
         //# 
         //# Gates connecting PDCP/RRC and RLC Layers
         //# 
-
+        
         inout TM_Sap;    // Transparent Mode SAP
         inout UM_Sap;    // Unacknowledged Mode SAP
         inout AM_Sap;    // Acknowledged Mode SAP
-
+        
+        inout TM_control;
+        inout AM_control;
+        inout UM_control;
         //# 
         //# Gates connecting RLC and MAC Layers
         //#
-
+        
         input MAC_to_RLC;    // MAC to RLC
         output RLC_to_MAC;    // RLC to MAC
-
+        
     submodules:
         // TM Module
         tm: LteRlcTm {
-            @display("p=100,100;");
+                @display("p=100,100;");
         }
         
         // UM Module        
         um: <umType> like ILteRlcUm {
-            @display("p=200,100;");
+                @display("p=200,100;");
         }
         
         // AM Module
         am: LteRlcAm {
-            @display("p=300,100;");
+                @display("p=300,100;");
         }
         
-           // Muxer Module
+        // Muxer Module
         mux: LteRlcMux {
-            @display("p=200,200");
+                @display("p=200,200");
         }
-
+        
     connections:
         //#
         //# Connections from RLC (up)
@@ -65,7 +69,7 @@ module LteRlc {
         tm.TM_Sap_up <--> TM_Sap;
         um.UM_Sap_up <--> UM_Sap;
         am.AM_Sap_up <--> AM_Sap;
-
+        
         //#
         //# Connections from TM/UM/AM 
         //# modules to the RLC Mux
@@ -73,13 +77,19 @@ module LteRlc {
         tm.TM_Sap_down <--> mux.TM_Sap;
         um.UM_Sap_down <--> mux.UM_Sap;
         am.AM_Sap_down <--> mux.AM_Sap;
-
+        
         //#
         //# Connections between Mux
         //# and RLC (down)
         //#
         mux.MAC_to_RLC <-- MAC_to_RLC;
         mux.RLC_to_MAC --> RLC_to_MAC;
+        
+        //#Control plane
+        tm.TM_control <--> TM_control;
+        um.UM_control <--> UM_control;
+        am.AM_control <--> AM_control  ;
+        
 }
 
 // 
@@ -88,13 +98,14 @@ module LteRlc {
 simple LteRlcTm {
     parameters:
         @display("i=block/wheelbarrow");
-
+        
     gates:
         //# 
         //# Gates connecting RLC and TM
         //# 
         inout TM_Sap_up;    // Gate to PDCP
         inout TM_Sap_down;    // Gate to RLC Mux
+        inout TM_control;
 }
 
 // 
@@ -104,6 +115,7 @@ moduleinterface ILteRlcUm {
     gates:
         inout UM_Sap_up;    // Gate to PDCP
         inout UM_Sap_down;    // Gate to RLC Mux
+        inout UM_control;
 }
 
 simple LteRlcUm like ILteRlcUm {
@@ -127,7 +139,7 @@ simple LteRlcUm like ILteRlcUm {
         @statistic[rlcPacketLossDl](title="rlc Packet Loss"; unit=""; source="rlcPacketLossDl"; record=mean);
         @signal[rlcPacketLossTotal];
         @statistic[rlcPacketLossTotal](title="rlc Packet Loss"; unit=""; source="rlcPacketLossTotal"; record=mean);
-
+        
         @signal[rlcCellThroughputUl];
         @statistic[rlcCellThroughputUl](title="Cell Throughput at the rlc layer UL"; unit="Bps"; source="rlcCellThroughputUl"; record=mean);
         @signal[rlcCellThroughputDl];
@@ -166,6 +178,7 @@ simple LteRlcUm like ILteRlcUm {
         //# 
         inout UM_Sap_up;    // Gate to PDCP
         inout UM_Sap_down;    // Gate to RLC Mux
+        inout UM_control;
 }
 
 // 
@@ -184,12 +197,12 @@ simple LteRlcUmD2D extends LteRlcUm
         @statistic[rlcThroughputD2D](title="Throughput at the rlc layer D2D"; unit="Bps"; source="rlcThroughputD2D"; record=mean);
         @signal[rlcPacketLossD2D];
         @statistic[rlcPacketLossD2D](title="rlc Packet Loss"; unit=""; source="rlcPacketLossD2D"; record=mean);        
-      
+        
         @signal[rlcCellPacketLossD2D];
         @statistic[rlcCellPacketLossD2D](title="rlc Cell Packet Loss"; unit=""; source="rlcCellPacketLossD2D"; record=mean);
         @signal[rlcCellThroughputD2D];
         @statistic[rlcCellThroughputD2D](title="Cell Throughput at the rlc layer D2D"; unit="Bps"; source="rlcCellThroughputD2D"; record=mean);     
-      
+        
         //# PDU-level statistics
         @signal[rlcPduDelayD2D];
         @statistic[rlcPduDelayD2D](title="Delay at the rlc layer D2D"; unit="s"; source="rlcPduDelayD2D"; record=mean);
@@ -247,6 +260,7 @@ simple LteRlcAm {
         //# 
         inout AM_Sap_up;    // Gate to PDCP
         inout AM_Sap_down;    // Gate to RLC Mux
+        inout AM_control;
 }
 
 // 
@@ -256,7 +270,7 @@ simple LteRlcAm {
 simple LteRlcMux {
     parameters:
         @display("i=block/classifier");                        // Display preferences
-
+        
     gates:
         //# 
         //# Gates connecting TM/UM/AM modules and RLC Mux
@@ -264,7 +278,7 @@ simple LteRlcMux {
         inout TM_Sap;    // Transparent Mode SAP
         inout UM_Sap;    // Unacknowledged Mode SAP
         inout AM_Sap;    // Acknowledged Mode SAP
-
+        
         //# 
         //# Gates connecting RLC and MAC Layers
         //#

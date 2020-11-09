@@ -18,7 +18,7 @@ using namespace inet;
 
 enum EpcNodeType
 {
-    ENB,
+    ENB,RSUENODEB,
     PGW,
     SGW
 };

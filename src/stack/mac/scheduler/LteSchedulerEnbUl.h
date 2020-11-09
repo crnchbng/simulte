@@ -17,9 +17,26 @@
  *
  * LTE eNB uplink scheduler.
  */
+class LteMacEnbD2D;
+class LcgScheduler;
+
 class LteSchedulerEnbUl : public LteSchedulerEnb
 {
   protected:
+
+    // MAC module, queried for parameters
+    LteMacEnb *mac_;
+    LteMacEnbD2D *macd2d_;
+
+    // Schedule List
+    LteMacScheduleList scheduleList_;
+
+    // Scheduled Bytes List
+    LteMacScheduleList scheduledBytesList_;
+
+    // Inner Scheduler - default to Standard LCG
+    LcgScheduler* lcgScheduler_;
+
 
     typedef std::map<MacNodeId, unsigned char> HarqStatus;
     typedef std::map<MacNodeId, bool> RacStatus;
@@ -44,6 +61,13 @@ class LteSchedulerEnbUl : public LteSchedulerEnb
     RacStatus racStatus_;
 
   public:
+
+    LteSchedulerEnbUl(LteMacEnbD2D * mac);
+    LteSchedulerEnbUl();
+       /*
+        * destructor
+        */
+       ~LteSchedulerEnbUl();
 
     //! Updates HARQ descriptor current process pointer (to be called every TTI by main loop).
     void updateHarqDescs();

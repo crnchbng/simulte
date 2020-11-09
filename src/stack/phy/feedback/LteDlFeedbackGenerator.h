@@ -19,7 +19,7 @@
 #include "common/timer/TTimer.h"
 #include "common/timer/TTimerMsg_m.h"
 #include "stack/phy/feedback/LteFeedbackComputation.h"
-
+#include "corenetwork/binder/LteBinder.h"
 class DasFilter;
 /**
  * @class LteDlFeedbackGenerator
@@ -33,36 +33,24 @@ class LteDlFeedbackGenerator : public cSimpleModule
         PERIODIC_SENSING = 0, PERIODIC_TX, APERIODIC_TX
     };
 
-  private:
-
+private:
+    LteBinder* binder_;
     FeedbackType fbType_;               /// feedback type (ALLBANDS, PREFERRED, WIDEBAND)
     RbAllocationType rbAllocationType_; /// resource allocation type
     LteFeedbackComputation* lteFeedbackComputation_; // Object used to compute the feedback
-    FeedbackGeneratorType generatorType_;
-    /**
-     * NOTE: fbPeriod_ MUST be greater than fbDelay_,
-     * otherwise we have overlapping transmissions
-     * for periodic feedback (when calling start() on busy
-     * transmission timer we have no operation)
-     */
-    simtime_t fbPeriod_;    /// period for Periodic feedback in TTI
-    simtime_t fbDelay_;     /// time interval between sensing and transmission in TTI
-
-    bool usePeriodic_;      /// true if we want to use also periodic feedback
-    TxMode currentTxMode_;  /// transmission mode to use in feedback generation
-
-    DasFilter *dasFilter_;  /// reference to das filter
-    LteCellInfo *cellInfo_; /// reference to cellInfo
-
-    // cellInfo parameters
-    std::map<Remote, int> antennaCws_; /// number of antenna per remote
-    int numPreferredBands_;           /// number of preferred bands to use (meaningful only in PREFERRED mode)
-    int numBands_;                      /// number of cell bands
-
     // Timers
     TTimer *tPeriodicSensing_;
     TTimer *tPeriodicTx_;
     TTimer *tAperiodicTx_;
+    DasFilter *dasFilter_;  /// reference to das filter
+    LteCellInfo *cellInfo_; /// reference to cellInfo
+    FeedbackGeneratorType generatorType_;
+    bool usePeriodic_;      /// true if we want to use also periodic feedback
+    TxMode currentTxMode_;  /// transmission mode to use in feedback generation
+    // cellInfo parameters
+    std::map<Remote, int> antennaCws_; /// number of antenna per remote
+    int numPreferredBands_;           /// number of preferred bands to use (meaningful only in PREFERRED mode)
+    int numBands_;                      /// number of cell bands
 
     // Feedback Maps
     //typedef std::map<Remote,LteFeedback> FeedbackMap_;
@@ -74,7 +62,15 @@ class LteDlFeedbackGenerator : public cSimpleModule
     MacNodeId nodeId_;
 
     bool feedbackComputationPisa_;
-    private:
+    /**
+     * NOTE: fbPeriod_ MUST be greater than fbDelay_,
+     * otherwise we have overlapping transmissions
+     * for periodic feedback (when calling start() on busy
+     * transmission timer we have no operation)
+     */
+    simtime_t fbPeriod_;    /// period for Periodic feedback in TTI
+    simtime_t fbDelay_;     /// time interval between sensing and transmission in TTI
+private:
 
     /**
      * DUMMY: should be provided by PHY
@@ -85,7 +81,7 @@ class LteDlFeedbackGenerator : public cSimpleModule
     LteFeedbackComputation* getFeedbackComputationFromName(std::string name, ParameterMap& params);
 
 
-  protected:
+protected:
 
     /**
      * Initialization function.
@@ -104,7 +100,7 @@ class LteDlFeedbackGenerator : public cSimpleModule
     void sensing(FbPeriodicity per);
     virtual int numInitStages() const { return inet::INITSTAGE_LINK_LAYER_2 + 1; }
 
-  public:
+public:
 
     /**
      * Constructor

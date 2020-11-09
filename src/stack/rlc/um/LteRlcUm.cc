@@ -12,8 +12,9 @@
 
 Define_Module(LteRlcUm);
 
-UmTxEntity* LteRlcUm::getTxBuffer(FlowControlInfo* lteInfo)
+UmTxEntity* LteRlcUm::getTxBuffer(LteControlInfo* lteInfo)
 {
+    EV<<"LteRlcUm::getTxBuffer"<<endl;
     MacNodeId nodeId = ctrlInfoToUeId(lteInfo);
     LogicalCid lcid = lteInfo->getLcid();
 
@@ -38,7 +39,7 @@ UmTxEntity* LteRlcUm::getTxBuffer(FlowControlInfo* lteInfo)
         }
 
         EV << "LteRlcUm : Added new UmTxEntity: " << txEnt->getId() <<
-        " for node: " << nodeId << " for Lcid: " << lcid << "\n";
+                " for node: " << nodeId << " for Lcid: " << lcid << "\n";
 
         return txEnt;
     }
@@ -46,15 +47,18 @@ UmTxEntity* LteRlcUm::getTxBuffer(FlowControlInfo* lteInfo)
     {
         // Found
         EV << "LteRlcUm : Using old UmTxBuffer: " << it->second->getId() <<
-        " for node: " << nodeId << " for Lcid: " << lcid << "\n";
+                " for node: " << nodeId << " for Lcid: " << lcid << "\n";
 
         return it->second;
     }
 }
 
 
-UmRxEntity* LteRlcUm::getRxBuffer(FlowControlInfo* lteInfo)
+
+UmRxEntity* LteRlcUm::getRxBuffer(LteControlInfo* lteInfo)
 {
+    EV<<"LteRlcUm::getRxBuffer"<<endl;
+
     MacNodeId nodeId;
     if (lteInfo->getDirection() == DL)
         nodeId = lteInfo->getDestId();
@@ -73,14 +77,14 @@ UmRxEntity* LteRlcUm::getRxBuffer(FlowControlInfo* lteInfo)
         buf << "UmRxEntity Lcid: " << lcid;
         cModuleType* moduleType = cModuleType::get("lte.stack.rlc.UmRxEntity");
         UmRxEntity* rxEnt = check_and_cast<UmRxEntity *>(
-            moduleType->createScheduleInit(buf.str().c_str(), getParentModule()));
+                moduleType->createScheduleInit(buf.str().c_str(), getParentModule()));
         rxEntities_[cid] = rxEnt;    // Add to rx_entities map
 
         // store control info for this flow
         rxEnt->setFlowControlInfo(lteInfo->dup());
 
         EV << "LteRlcUm : Added new UmRxEntity: " << rxEnt->getId() <<
-        " for node: " << nodeId << " for Lcid: " << lcid << "\n";
+                " for node: " << nodeId << " for Lcid: " << lcid << "\n";
 
         return rxEnt;
     }
@@ -88,7 +92,7 @@ UmRxEntity* LteRlcUm::getRxBuffer(FlowControlInfo* lteInfo)
     {
         // Found
         EV << "LteRlcUm : Using old UmRxEntity: " << it->second->getId() <<
-        " for node: " << nodeId << " for Lcid: " << lcid << "\n";
+                " for node: " << nodeId << " for Lcid: " << lcid << "\n";
 
         return it->second;
     }
@@ -96,10 +100,11 @@ UmRxEntity* LteRlcUm::getRxBuffer(FlowControlInfo* lteInfo)
 
 void LteRlcUm::sendDefragmented(cPacket *pkt)
 {
+
     Enter_Method_Silent("sendDefragmented()");                    // Direct Method Call
     take(pkt);                                                    // Take ownership
 
-    EV << "LteRlcUm : Sending packet " << pkt->getName() << " to port UM_Sap_up$o\n";
+    EV << "LteRlcUm ::sendDefragmented Sending packet " << pkt->getName() << " to port UM_Sap_up$o\n";
     send(pkt, up_[OUT]);
 
     emit(sentPacketToUpperLayer, pkt);
@@ -109,7 +114,7 @@ void LteRlcUm::sendToLowerLayer(cPacket *pkt)
 {
     Enter_Method_Silent("sendToLowerLayer()");                    // Direct Method Call
     take(pkt);                                                    // Take ownership
-    EV << "LteRlcUm : Sending packet " << pkt->getName() << " to port UM_Sap_down$o\n";
+    EV << "LteRlcUm :sendToLowerLayer  Sending packet " << pkt->getName() << " to port UM_Sap_down$o\n";
     send(pkt, down_[OUT]);
 
     emit(sentPacketToLowerLayer, pkt);
@@ -117,10 +122,11 @@ void LteRlcUm::sendToLowerLayer(cPacket *pkt)
 
 void LteRlcUm::handleUpperMessage(cPacket *pkt)
 {
+
     EV << "LteRlcUm::handleUpperMessage - Received packet " << pkt->getName() << " from upper layer, size " << pkt->getByteLength() << "\n";
 
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->removeControlInfo());
 
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->removeControlInfo());
     UmTxEntity* txbuf = getTxBuffer(lteInfo);
 
     // Create a new RLC packet
@@ -158,13 +164,17 @@ void LteRlcUm::handleUpperMessage(cPacket *pkt)
     }
 
     emit(receivedPacketFromUpperLayer, pkt);
+
+
+
+
 }
 
 void LteRlcUm::handleLowerMessage(cPacket *pkt)
 {
     EV << "LteRlcUm::handleLowerMessage - Received packet " << pkt->getName() << " from lower layer\n";
 
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
 
     if (strcmp(pkt->getName(), "LteMacSduRequest") == 0)
     {
@@ -172,7 +182,8 @@ void LteRlcUm::handleLowerMessage(cPacket *pkt)
         UmTxEntity* txbuf = getTxBuffer(lteInfo);
 
         LteMacSduRequest* macSduRequest = check_and_cast<LteMacSduRequest*>(pkt);
-        unsigned int size = macSduRequest->getSduSize();
+         int size = 0;
+        size = macSduRequest->getSduSize();
 
         drop(pkt);
 
@@ -197,6 +208,7 @@ void LteRlcUm::handleLowerMessage(cPacket *pkt)
 
 void LteRlcUm::deleteQueues(MacNodeId nodeId)
 {
+    EV<<"LteRlcUm::deleteQueues"<<endl;
     UmTxEntities::iterator tit;
     UmRxEntities::iterator rit;
 
@@ -246,6 +258,7 @@ void LteRlcUm::initialize()
     down_[IN] = gate("UM_Sap_down$i");
     down_[OUT] = gate("UM_Sap_down$o");
 
+
     // statistics
     receivedPacketFromUpperLayer = registerSignal("receivedPacketFromUpperLayer");
     receivedPacketFromLowerLayer = registerSignal("receivedPacketFromLowerLayer");
@@ -258,6 +271,7 @@ void LteRlcUm::initialize()
 
 void LteRlcUm::handleMessage(cMessage* msg)
 {
+    EV<<"LteRlcUm::handleMessage"<<endl;
     cPacket* pkt = check_and_cast<cPacket *>(msg);
     EV << "LteRlcUm : Received packet " << pkt->getName() << " from port " << pkt->getArrivalGate()->getName() << endl;
 
@@ -272,3 +286,13 @@ void LteRlcUm::handleMessage(cMessage* msg)
     }
     return;
 }
+
+
+void LteRlcUm::deleteModule(){
+    cancelAndDelete(ttiTick_);
+    cSimpleModule::deleteModule();
+}
+
+
+
+

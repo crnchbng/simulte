@@ -9,28 +9,45 @@
 
 #ifndef _LTE_AIRPHYUE_H_
 #define _LTE_AIRPHYUE_H_
-
+#include <iterator>
 #include "stack/phy/layer/LtePhyBase.h"
 #include "stack/phy/das/DasFilter.h"
 #include "stack/mac/layer/LteMacUe.h"
 #include "stack/rlc/um/LteRlcUm.h"
+#include "stack/phy/packet/SidelinkControlInformation_m.h"
+#include "stack/phy/packet/SPSResourcePool.h"
+#include "stack/mac/packet/LteSidelinkGrant.h"
+#include "control/packet/SIB21.h"
+#include "stack/phy/packet/SidelinkControlInformation_m.h"
+
+#include "stack/mac/packet/LteSidelinkGrant.h"
+
 
 class DasFilter;
 
+
 class LtePhyUe : public LtePhyBase
 {
-  protected:
-    /** Master MacNodeId */
-    MacNodeId masterId_;
 
-    /** Statistic for serving cell */
-    simsignal_t servingCell_;
+protected:
 
-    /** Self message to trigger handover procedure evaluation */
+    SidelinkResourceAllocation* mode4;
+    LteMacUe *mac_;
+    LteRlcUm *rlcUm_;
+
     cMessage *handoverStarter_;
 
     /** Self message to start the handover procedure */
     cMessage *handoverTrigger_;
+
+    inet::Coord cellPos;
+    double distanceFromEnb;
+    std::string rrcCurrentState;
+    /** Master MacNodeId */
+    MacNodeId masterId_;
+    MacNodeId  connectedNodeId_;
+
+
 
     /** RSSI received from the current serving node */
     double currentMasterRssi_;
@@ -88,17 +105,31 @@ class LtePhyUe : public LtePhyBase
     bool useBattery_;
     double txAmount_;    // drawn current amount for tx operations (mA)
     double rxAmount_;    // drawn current amount for rx operations (mA)
+    //Sidelink related parameters
 
-    LteMacUe *mac_;
-    LteRlcUm *rlcUm_;
+    int thresholdRSSI_;
+    int commTxPoolNormalCommon;
+    struct UsedRBs
+    {
+        simtime_t time_;
+        RbMap rbMap_;
+    };
+
+    std::vector<UsedRBs> usedRbs_;
 
     simtime_t lastFeedback_;
+
+    /** Statistic for serving cell */
+    simsignal_t servingCell;
+    /** Self message to trigger handover procedure evaluation */
+
+    simsignal_t numberReceivedPackets;
+    simsignal_t numberTransmittedPackets;
 
     virtual void initialize(int stage)override ;
     virtual void handleSelfMessage(cMessage *msg) override;
     virtual void handleAirFrame(cMessage* msg) override;
     virtual void finish() override;
-
     virtual void handleUpperMessage(cMessage* msg) override;
 
     /**
@@ -113,15 +144,14 @@ class LtePhyUe : public LtePhyBase
      * Utility function to update the hysteresis threshold using hysteresisFactor_.
      */
     double updateHysteresisTh(double v);
-
     void handoverHandler(LteAirFrame* frame, UserControlInfo* lteInfo);
-
     void deleteOldBuffers(MacNodeId masterId);
-
     virtual void triggerHandover();
     virtual void doHandover();
+    virtual void retrieveSIB21(cMessage *msg);
+    void checkForDataTransmission();
 
-  public:
+public:
     LtePhyUe();
     virtual ~LtePhyUe();
     DasFilter *getDasFilter();
@@ -133,11 +163,33 @@ class LtePhyUe : public LtePhyBase
     {
         return masterId_;
     }
+
     simtime_t coherenceTime(double speed)
     {
         double fd = (speed / SPEED_OF_LIGHT) * carrierFrequency_;
         return 0.1 / fd;
     }
+    unsigned int getUsedRbs(const Remote antenna, Band b)
+    {
+        std::vector<UsedRBs>::iterator it = usedRbs_.begin();
+        for (; it != usedRbs_.end(); ++it)
+        {
+            if (it->time_ == NOW)
+                return it->rbMap_[antenna][b];
+        }
+    }
+    unsigned int getPrevUsedRbs(const Remote antenna, Band b)
+    {
+        std::vector<UsedRBs>::iterator it = usedRbs_.begin();
+        for (; it != usedRbs_.end(); ++it)
+        {
+            if (it->time_ == NOW-0.001)
+                return it->rbMap_[antenna][b];
+        }
+        return 0;
+    }
+
+
 };
 
 #endif  /* _LTE_AIRPHYUE_H_ */

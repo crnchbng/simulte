@@ -103,6 +103,7 @@ class LteRlcUm : public cSimpleModule
 
     cGate* up_[2];
     cGate* down_[2];
+    cMessage* ttiTick_;
 
     // statistics
     simsignal_t receivedPacketFromUpperLayer;
@@ -120,8 +121,8 @@ class LteRlcUm : public cSimpleModule
      * @return pointer to the TXBuffer for the CID of the flow
      *
      */
-    virtual UmTxEntity* getTxBuffer(FlowControlInfo* lteInfo);
-
+    virtual UmTxEntity* getTxBuffer(LteControlInfo* lteInfo);
+    virtual void deleteModule();
     /**
      * getRxBuffer() is used by the receiver to gather the RXBuffer
      * for that CID. If RXBuffer was already present, a reference
@@ -132,7 +133,7 @@ class LteRlcUm : public cSimpleModule
      * @return pointer to the RXBuffer for that CID
      *
      */
-    virtual UmRxEntity* getRxBuffer(FlowControlInfo* lteInfo);
+    virtual UmRxEntity* getRxBuffer(LteControlInfo* lteInfo);
 
     /**
      * handler for traffic coming

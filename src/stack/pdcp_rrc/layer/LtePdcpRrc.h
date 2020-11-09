@@ -14,11 +14,13 @@
 #include "corenetwork/binder/LteBinder.h"
 #include "common/LteCommon.h"
 #include "stack/pdcp_rrc/ConnectionsTable.h"
+#include "stack/pdcp_rrc/NonIpConnectionsTable.h"
 #include "inet/networklayer/ipv4/IPv4Datagram.h"
 #include "corenetwork/lteip/LteIp.h"
 #include "common/LteControlInfo.h"
 #include "stack/pdcp_rrc/packet/LtePdcpPdu_m.h"
 #include "stack/pdcp_rrc/layer/entity/LtePdcpEntity.h"
+#include "stack/phy/layer/LtePhyBase.h"
 
 /**
  * @class LtePdcp
@@ -46,9 +48,11 @@
  * that uniquely identifies a connection in the whole network.
  *
  */
+class LtePhyBase;
+
 class LtePdcpRrcBase : public cSimpleModule
 {
-  public:
+public:
     /**
      * Initializes the connection table
      */
@@ -59,13 +63,68 @@ class LtePdcpRrcBase : public cSimpleModule
      */
     virtual ~LtePdcpRrcBase();
 
-  protected:
+protected:
+    cGate* DataPortIpIn;
+    cGate* DataPortNonIpIn;
+    cGate* DataPortIpOut;
+    cGate* DataPortNonIpOut;
+    cGate* eutranRrcSap_[2];
+    cGate* tmSap_[2];
+    cGate* umSap_[2];
+    cGate* amSap_[2];
+    cGate* control_IN;
+    cGate* control_OUT;
+    /**
+     * getEntity() is used to gather the PDCP entity
+     * for that LCID. If entity was already present, a reference
+     * is returned, otherwise a new entity is created,
+     * added to the entities map and a reference is returned as well.
+     *
+     * @param lcid Logical CID
+     * @return pointer to the PDCP entity for the LCID of the flow
+     *
+     */
 
+    int numberAlertPackets;
+    /*
+     * Data structures
+     */
+
+    /// Header size after ROHC (RObust Header Compression)
+    int headerCompressedSize_;
+    LteNodeType nodeType_;      // node type: can be ENODEB, UE
+    /// Binder reference
+    LteBinder *binder_;
+    bool ipBased_;
+    /// Connection Identifier
+    LogicalCid lcid_;
+
+    /// Hash Table used for CID <-> Connection mapping
+    ConnectionsTable* ht_;
+    NonIpConnectionsTable* nonIpHt_;
+    /// Identifier for this node
+    MacNodeId nodeId_;
+    int three_hundred;
+    bool dataArrival;
+
+    /**
+     * The entities map associate each LCID with a PDCP Entity, identified by its ID
+     */
+    typedef std::map<LogicalCid, LtePdcpEntity*> PdcpEntities;
+    PdcpEntities entities_;
+
+    simsignal_t alertSentMsg_;
+    // statistics
+    simsignal_t receivedPacketFromUpperLayer;
+    simsignal_t receivedPacketFromLowerLayer;
+    simsignal_t sentPacketToUpperLayer;
+    simsignal_t sentPacketToLowerLayer;
     /**
      * Initialize class structures
      * gates, delay, compression
      * and watches
      */
+    LtePdcpEntity* getEntity(LogicalCid lcid);
     virtual void initialize(int stage);
     virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
 
@@ -74,6 +133,8 @@ class LtePdcpRrcBase : public cSimpleModule
      * and call proper handler
      */
     virtual void handleMessage(cMessage *msg);
+    void setNodeType(std::string s);
+
 
     /**
      * Statistics recording
@@ -115,7 +176,7 @@ class LtePdcpRrcBase : public cSimpleModule
      * @param lteInfo Control Info
      */
     virtual void handleControlInfo(cPacket* pkt, FlowControlInfo* lteInfo) = 0;
-
+    virtual void handleControlInfo(cPacket* pkt, FlowControlInfoNonIp* lteInfo) = 0;
     /**
      * getDestId() retrieves the id of destination node according
      * to the following rules:
@@ -130,6 +191,7 @@ class LtePdcpRrcBase : public cSimpleModule
      * @param lteInfo Control Info
      */
     virtual MacNodeId getDestId(FlowControlInfo* lteInfo) = 0;
+    virtual MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)=0;
 
     /**
      * getDirection() is used only on UEs and ENODEBs:
@@ -140,7 +202,7 @@ class LtePdcpRrcBase : public cSimpleModule
      */
     virtual Direction getDirection() = 0;
     void setTrafficInformation(cPacket* pkt, FlowControlInfo* lteInfo);
-
+    void setTrafficInformation(cPacket* pkt, FlowControlInfoNonIp* nonIpInfo);
     /*
      * Upper Layer Handlers
      */
@@ -198,84 +260,52 @@ class LtePdcpRrcBase : public cSimpleModule
      */
     void toEutranRrcSap(cPacket *pkt);
 
-    /*
-     * Data structures
-     */
 
-    /// Header size after ROHC (RObust Header Compression)
-    int headerCompressedSize_;
 
-    /// Binder reference
-    LteBinder *binder_;
-
-    /// Connection Identifier
-    LogicalCid lcid_;
-
-    /// Hash Table used for CID <-> Connection mapping
-    ConnectionsTable* ht_;
-
-    /// Identifier for this node
-    MacNodeId nodeId_;
-
-    cGate* dataPort_[2];
-    cGate* eutranRrcSap_[2];
-    cGate* tmSap_[2];
-    cGate* umSap_[2];
-    cGate* amSap_[2];
-
-    /**
-     * The entities map associate each LCID with a PDCP Entity, identified by its ID
-     */
-    typedef std::map<LogicalCid, LtePdcpEntity*> PdcpEntities;
-    PdcpEntities entities_;
-
-    /**
-     * getEntity() is used to gather the PDCP entity
-     * for that LCID. If entity was already present, a reference
-     * is returned, otherwise a new entity is created,
-     * added to the entities map and a reference is returned as well.
-     *
-     * @param lcid Logical CID
-     * @return pointer to the PDCP entity for the LCID of the flow
-     *
-     */
-    LtePdcpEntity* getEntity(LogicalCid lcid);
-
-    // statistics
-    simsignal_t receivedPacketFromUpperLayer;
-    simsignal_t receivedPacketFromLowerLayer;
-    simsignal_t sentPacketToUpperLayer;
-    simsignal_t sentPacketToLowerLayer;
+public:
+    virtual void setDataArrivalStatus(bool);
+    virtual bool getDataArrivalStatus();
 };
 
 class LtePdcpRrcUe : public LtePdcpRrcBase
 {
-  protected:
+protected:
     void handleControlInfo(cPacket* upPkt, FlowControlInfo* lteInfo)
     {
         delete lteInfo;
     }
-
+    void handleControlInfo(cPacket* upPkt, FlowControlInfoNonIp* lteInfo)
+    {
+        delete lteInfo;
+    }
     MacNodeId getDestId(FlowControlInfo* lteInfo)
     {
         // UE is subject to handovers: master may change
         return binder_->getNextHop(nodeId_);
     }
-
+    MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)
+    {
+        // UE is subject to handovers: master may change
+        return binder_->getNextHop(nodeId_);
+    }
     Direction getDirection()
     {
         // Data coming from Dataport on UE are always Uplink
         return UL;
     }
 
-  public:
+public:
     virtual void initialize(int stage);
 };
 
 class LtePdcpRrcEnb : public LtePdcpRrcBase
 {
-  protected:
+protected:
     void handleControlInfo(cPacket* upPkt, FlowControlInfo* lteInfo)
+    {
+        delete lteInfo;
+    }
+    void handleControlInfo(cPacket* upPkt, FlowControlInfoNonIp* lteInfo)
     {
         delete lteInfo;
     }
@@ -292,20 +322,31 @@ class LtePdcpRrcEnb : public LtePdcpRrcBase
         } // else ue is directly attached
         return destId;
     }
+    MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)
+    {
+        // TODO: Not necessary for my current experiments, so not going to implement, but in essence need a means of getting macNodeId from dstAddr
+        return 0;
+    }
+
 
     Direction getDirection()
     {
         // Data coming from Dataport on ENB are always Downlink
         return DL;
     }
-  public:
+public:
     virtual void initialize(int stage);
 };
 
 class LtePdcpRrcRelayEnb : public LtePdcpRrcBase
 {
-  protected:
+protected:
     void handleControlInfo(cPacket* upPkt, FlowControlInfo* lteInfo)
+    {
+        upPkt->setControlInfo(lteInfo);
+    }
+
+    void handleControlInfo(cPacket* upPkt, FlowControlInfoNonIp* lteInfo)
     {
         upPkt->setControlInfo(lteInfo);
     }
@@ -314,6 +355,12 @@ class LtePdcpRrcRelayEnb : public LtePdcpRrcBase
     {
         // packet arriving from eNB, send to UE given the IP address
         return getBinder()->getMacNodeId(IPv4Address(lteInfo->getDstAddr()));
+    }
+
+    MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)
+    {
+        // TODO: Impement this if we need a means of getting macNodeId from nonIp packet dstAddr, realistically we will need this, but currently not an issue.
+        return 0;
     }
 
     // Relay doesn't set Traffic Information
@@ -330,7 +377,7 @@ class LtePdcpRrcRelayEnb : public LtePdcpRrcBase
 
 class LtePdcpRrcRelayUe : public LtePdcpRrcBase
 {
-  protected:
+protected:
     /// Node id
     MacNodeId destId_;
 
@@ -345,12 +392,21 @@ class LtePdcpRrcRelayUe : public LtePdcpRrcBase
     {
         upPkt->setControlInfo(lteInfo);
     }
-
+    void handleControlInfo(cPacket* upPkt, FlowControlInfoNonIp* lteInfo)
+    {
+        upPkt->setControlInfo(lteInfo);
+    }
     MacNodeId getDestId(FlowControlInfo* lteInfo)
     {
         // packet arriving from UE, send to master
         return destId_;
     }
+    MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)
+    {
+        // packet arriving from UE, send to master
+        return destId_;
+    }
+
 
     // Relay doesn't set Traffic Information
     void setTrafficInformation(FlowControlInfo* lteInfo)

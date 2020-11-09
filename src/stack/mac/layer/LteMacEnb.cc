@@ -693,7 +693,7 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
 
     pkt->setTimestamp();        // Add timestamp with current time to packet
 
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
 
     // obtain the cid from the packet informations
     MacCid cid = ctrlInfoToMacCid(lteInfo);
@@ -714,14 +714,14 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
             macBuffers_[cid] = vqueue;
 
             // make a copy of lte control info and store it to traffic descriptors map
-            FlowControlInfo toStore(*lteInfo);
+            LteControlInfo toStore(*lteInfo);
             connDesc_[cid] = toStore;
             // register connection to lcg map.
             LteTrafficClass tClass = (LteTrafficClass) lteInfo->getTraffic();
 
             lcgMap_.insert(LcgPair(tClass, CidBufferPair(cid, macBuffers_[cid])));
 
-            EV << "LteMacBuffers : Using new buffer on node: " <<
+            EV << "LteMacBuffers 1 LteMacEnb: Using new buffer on node: " <<
             MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Bytes in the Queue: " <<
             vqueue->getQueueOccupancy() << "\n";
         }
@@ -730,7 +730,7 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
             LteMacBuffer* vqueue = macBuffers_.find(cid)->second;
             vqueue->pushBack(vpkt);
 
-            EV << "LteMacBuffers : Using old buffer on node: " <<
+            EV << "LteMacBuffers 2 LteMacEnb: Using old buffer on node: " <<
             MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
             vqueue->getQueueOccupancy() << "\n";
         }
@@ -750,7 +750,7 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
 
         mbuf_[cid] = queue;
 
-        EV << "LteMacBuffers : Using new buffer on node: " <<
+        EV << "LteMacBuffers 3 LteMacEnb : Using new buffer on node: " <<
         MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
         queue->getQueueSize() - queue->getByteLength() << "\n";
     }
@@ -776,7 +776,7 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
             return false;
         }
 
-        EV << "LteMacBuffers : Using old buffer on node: " <<
+        EV << "LteMacBuffers 4 LteMacEnb : Using old buffer on node: " <<
         MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
         queue->getQueueSize() - queue->getByteLength() << "\n";
     }
@@ -786,7 +786,9 @@ bool LteMacEnb::bufferizePacket(cPacket* pkt)
 
 void LteMacEnb::handleUpperMessage(cPacket* pkt)
 {
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
+    throw cRuntimeError("LteMacEnb::handleUpperMessage");
+    EV <<"LteMacEnb::handleUpperMessage bufferize: "<<bufferizePacket(pkt)<<endl;
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
     MacCid cid = idToMacCid(lteInfo->getDestId(), lteInfo->getLcid());
 
     if (bufferizePacket(pkt))
@@ -815,7 +817,7 @@ void LteMacEnb::handleSelfMessage()
      *  MAIN LOOP  *
      ***************/
 
-    EV << "-----" << "ENB MAIN LOOP -----" << endl;
+    EV << "-----" << "LteMacEnb::handleSelfMessage() ENB MAIN LOOP -----" << endl;
 
     /*************
      * END DEBUG

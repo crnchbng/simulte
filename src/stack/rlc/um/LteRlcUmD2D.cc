@@ -12,8 +12,9 @@
 
 Define_Module(LteRlcUmD2D);
 
-UmTxEntity* LteRlcUmD2D::getTxBuffer(FlowControlInfo* lteInfo)
+UmTxEntity* LteRlcUmD2D::getTxBuffer(LteControlInfo* lteInfo)
 {
+	EV<<"LteRlcUmD2D::getTxBuffer"<<endl;
     MacNodeId nodeId = ctrlInfoToUeId(lteInfo);
     LogicalCid lcid = lteInfo->getLcid();
 
@@ -53,12 +54,14 @@ UmTxEntity* LteRlcUmD2D::getTxBuffer(FlowControlInfo* lteInfo)
     else
     {
         // Found
-        EV << "LteRlcUmD2D : Using old UmTxBuffer: " << it->second->getId() <<
+        EV << "LteRlcUmD2D 1: Using old UmTxBuffer: " << it->second->getId() <<
         " for node: " << nodeId << " for Lcid: " << lcid << "\n";
 
         return it->second;
     }
 }
+
+
 
 void LteRlcUmD2D::handleLowerMessage(cPacket *pkt)
 {
@@ -68,7 +71,7 @@ void LteRlcUmD2D::handleLowerMessage(cPacket *pkt)
 
         // add here specific behavior for handling mode switch at the RLC layer
         D2DModeSwitchNotification* switchPkt = check_and_cast<D2DModeSwitchNotification*>(pkt);
-        FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(switchPkt->getControlInfo());
+        LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(switchPkt->getControlInfo());
 
         if (switchPkt->getTxSide())
         {
@@ -89,6 +92,16 @@ void LteRlcUmD2D::handleLowerMessage(cPacket *pkt)
             delete switchPkt;
         }
     }
+
+    else if (strcmp(pkt->getName(), "CBR") == 0)
+    {
+        EV << NOW << " LteRlcUmD2D::handleLowerMessage - Received packet " << pkt->getName() << " from lower layer\n";
+        // forward packet to PDCP
+        EV << "LteRlcUmD2D::handleLowerMessage - Sending packet " << pkt->getName() << " to port UM_Sap_up$o\n";
+        send(pkt, up_[OUT]);
+    }
+
+
     else
         LteRlcUm::handleLowerMessage(pkt);
 }
@@ -145,58 +158,4 @@ bool LteRlcUmD2D::isEmptyingTxBuffer(MacNodeId peerId)
         }
     }
     return false;
-}
-
-void LteRlcUmD2D::deleteQueues(MacNodeId nodeId)
-{
-    UmTxEntities::iterator tit;
-    UmRxEntities::iterator rit;
-
-    LteNodeType nodeType;
-    std::string nodeTypePar = getAncestorPar("nodeType").stdstringValue();
-    if (strcmp(nodeTypePar.c_str(), "ENODEB") == 0)
-        nodeType = ENODEB;
-    else
-        nodeType = UE;
-
-    // at the UE, delete all connections
-    // at the eNB, delete connections related to the given UE
-    for (tit = txEntities_.begin(); tit != txEntities_.end(); )
-    {
-        // if the entity refers to a D2D_MULTI connection, do not erase it
-        if (tit->second->isD2DMultiConnection())
-        {
-            ++tit;
-            continue;
-        }
-
-        if (nodeType == UE || (nodeType == ENODEB && MacCidToNodeId(tit->first) == nodeId))
-        {
-            delete tit->second;        // Delete Entity
-            txEntities_.erase(tit++);    // Delete Elem
-        }
-        else
-        {
-            ++tit;
-        }
-    }
-    for (rit = rxEntities_.begin(); rit != rxEntities_.end(); )
-    {
-        // if the entity refers to a D2D_MULTI connection, do not erase it
-        if (rit->second->isD2DMultiConnection())
-        {
-            ++rit;
-            continue;
-        }
-
-        if (nodeType == UE || (nodeType == ENODEB && MacCidToNodeId(rit->first) == nodeId))
-        {
-            delete rit->second;        // Delete Entity
-            rxEntities_.erase(rit++);    // Delete Elem
-        }
-        else
-        {
-            ++rit;
-        }
-    }
 }

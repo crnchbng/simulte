@@ -13,29 +13,45 @@
 #include "stack/mac/layer/LteMacUe.h"
 #include "stack/mac/layer/LteMacEnbD2D.h"
 #include "stack/mac/buffer/harq_d2d/LteHarqBufferTxD2D.h"
+#include "stack/mac/configuration/SidelinkConfiguration.h"
+#include "stack/mac/packet/LteSidelinkGrant.h"
+#include "control/packet/RRCStateChange_m.h"
+#include <iostream>
+#include <cstring>
+#include "common/LteCommon.h"
+#include "stack/mac/scheduler/LteSchedulerUeSl.h"
+#include "stack/mac/packet/DataArrival.h"
+#include "stack/phy/layer/LtePhyBase.h"
+
+
 
 class LteSchedulingGrant;
 class LteSchedulerUeUl;
+class LteSchedulerUeSl;
 class LteBinder;
-
+class SidelinkConfiguration;
+class LteMacEnbD2D;
 class LteMacUeD2D : public LteMacUe
 {
     // reference to the eNB
-    LteMacEnbD2D* enb_;
-
+    LteMacEnbD2D* enbmac_;
+    SidelinkConfiguration* slConfig;
+    LteSidelinkGrant* slGrant;
+    UserTxParams* preconfiguredTxParams_;
+    UserTxParams* getPreconfiguredTxParams();  // build and return new user tx params
+    LteSchedulerUeSl* lteSchedulerUeSl_;
+    ScheduleList* scheduleListSl_;
     // RAC Handling variables
     bool racD2DMulticastRequested_;
     // Multicast D2D BSR handling
     bool bsrD2DMulticastTriggered_;
-
-    simsignal_t rcvdD2DModeSwitchNotification_;
-
     // if true, use the preconfigured TX params for transmission, else use that signaled by the eNB
     bool usePreconfiguredTxParams_;
-    UserTxParams* preconfiguredTxParams_;
-    UserTxParams* getPreconfiguredTxParams();  // build and return new user tx params
-
-  protected:
+    int transmissionPid;
+    int transmissionCAMId;
+    std::string rrcCurrentState;
+    simsignal_t rcvdD2DModeSwitchNotification_;
+protected:
 
     /**
      * Reads MAC parameters for ue and performs initialization.
@@ -51,7 +67,7 @@ class LteMacUeD2D : public LteMacUe
     /**
      * Main loop
      */
-    virtual void handleSelfMessage();
+
 
     virtual void macHandleGrant(cPacket* pkt);
 
@@ -78,16 +94,21 @@ class LteMacUeD2D : public LteMacUe
      * On UE it also adds a BSR control element to the MAC PDU
      * containing the size of its buffer (for that CID)
      */
-    virtual void macPduMake(MacCid cid=0);
 
-  public:
+    virtual  void macPduMake(MacCid cid=0 );
+
+    virtual void handleSelfMessage();
+public:
     LteMacUeD2D();
     virtual ~LteMacUeD2D();
+    LteSidelinkGrant* mode4Grant;
+    LteSidelinkGrant* mode3Grant;
 
     virtual bool isD2DCapable()
     {
         return true;
     }
+
 
     virtual void triggerBsr(MacCid cid)
     {
@@ -97,6 +118,9 @@ class LteMacUeD2D : public LteMacUe
             bsrTriggered_ = true;
     }
     virtual void doHandover(MacNodeId targetEnb);
+    LteSidelinkGrant* getSchedulingGrant();
+    void setSchedulingGrant(LteSidelinkGrant*);
+    void finish();
 };
 
 #endif

@@ -42,6 +42,8 @@ EpcNodeType GtpUserSimplified::selectOwnerType(const char * type)
     EV << "GtpUserSimplified::selectOwnerType - setting owner type to " << type << endl;
     if(strcmp(type,"ENODEB") == 0)
         return ENB;
+    if(strcmp(type,"RSUEnB") == 0)
+            return RSUENODEB;
     if(strcmp(type,"PGW") != 0)
         error("GtpUserSimplified::selectOwnerType - unknown owner type [%s]. Aborting...",type);
     return PGW;

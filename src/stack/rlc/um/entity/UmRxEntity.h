@@ -32,7 +32,7 @@ class LteRlcUmDataPdu;
  */
 class UmRxEntity : public cSimpleModule
 {
-  public:
+public:
     UmRxEntity();
     virtual ~UmRxEntity();
 
@@ -42,16 +42,13 @@ class UmRxEntity : public cSimpleModule
      */
     void enque(cPacket* pkt);
 
-    void setFlowControlInfo(FlowControlInfo* lteInfo) { flowControlInfo_ = lteInfo; }
-    FlowControlInfo* getFlowControlInfo() { return flowControlInfo_; }
-
-    // returns true if this entity is for a D2D_MULTI connection
-    bool isD2DMultiConnection() { return (flowControlInfo_->getDirection() == D2D_MULTI); }
+    void setFlowControlInfo(LteControlInfo* lteInfo) { flowControlInfo_ = lteInfo; }
+    LteControlInfo* getFlowControlInfo() { return flowControlInfo_; }
 
     // called when a D2D mode switch is triggered
     void rlcHandleD2DModeSwitch(bool oldConnection, bool oldMode, bool clearBuffer=true);
 
-  protected:
+protected:
 
     /**
      * Initialize watches
@@ -83,22 +80,22 @@ class UmRxEntity : public cSimpleModule
 
     simsignal_t rlcPacketLossTotal_;
 
-  private:
+private:
 
     LteBinder* binder_;
 
     // reference to eNB for statistic purpose
     cModule* nodeB_;
-
-    // Node id of the owner module
-    MacNodeId ownerNodeId_;
-
     /*
      * Flow-related info.
      * Initialized with the control info of the first packet of the flow
      */
-    FlowControlInfo* flowControlInfo_;
+    LteControlInfo* flowControlInfo_;
+    // The SDU waiting for the missing portion
+    LteRlcSdu* buffered_;
 
+    // Node id of the owner module
+    MacNodeId ownerNodeId_;
     // The PDU enqueue buffer.
     cArray pduBuffer_;
 
@@ -110,12 +107,6 @@ class UmRxEntity : public cSimpleModule
 
     // Timeout for above timer
     double timeout_;
-
-    // For each PDU a received status variable is kept.
-    std::vector<bool> received_;
-
-    // The SDU waiting for the missing portion
-    LteRlcSdu* buffered_;
 
     // Sequence number of the last SDU delivered to the upper layer
     unsigned int lastSnoDelivered_;
@@ -129,6 +120,9 @@ class UmRxEntity : public cSimpleModule
     // (modify the lastPduReassembled_ and lastSnoDelivered_ counters)
     // useful for D2D after a mode switch
     bool resetFlag_;
+
+    // For each PDU a received status variable is kept.
+    std::vector<bool> received_;
 
     // move forward the reordering window
     void moveRxWindow(const int pos);

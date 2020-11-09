@@ -15,39 +15,60 @@
 #include "stack/mac/buffer/harq_d2d/LteHarqBufferMirrorD2D.h"
 #include "stack/d2dModeSelection/D2DModeSwitchNotification_m.h"
 #include "stack/mac/conflict_graph/ConflictGraph.h"
+#include "stack/mac/configuration/SidelinkConfiguration.h"
+#include "stack/mac/packet/LteSidelinkGrant.h"
+#include "stack/mac/scheduler/LteSchedulerEnbSl.h"
+#include "stack/mac/buffer/harq/LteHarqBufferRx.h"
+#include "stack/phy/packet/SPSResourcePool.h"
+
 
 typedef std::pair<MacNodeId, MacNodeId> D2DPair;
 typedef std::map<D2DPair, LteHarqBufferMirrorD2D*> HarqBuffersMirrorD2D;
 class ConflictGraph;
+class SidelinkConfiguration;
+class LteSchedulingGrant;
+class LteSchedulerEnbUl;
+class LteSchedulerEnbSl;
 
 class LteMacEnbD2D : public LteMacEnb
 {
-  protected:
+protected:
 
     /*
      * Stores the mirrored status of H-ARQ buffers for D2D transmissions.
      * The key value of the map is the pair <sender,receiver> of the D2D flow
      */
-    HarqBuffersMirrorD2D harqBuffersMirrorD2D_;
 
-    // if true, use the preconfigured TX params for transmission, else use that signaled by the eNB
-    bool usePreconfiguredTxParams_;
+    LteSidelinkGrant* mode3Grant;
+    LteSchedulerEnbSl* LteSchedulerEnbSl_;
+    ScheduleList* scheduleListSl_;
+    LteSchedulerEnbUl* lcgScheduler_;
+
+    // configured grant - one each codeword
+    LteSchedulingGrant* schedulingGrant_;
+
+    /// List of scheduled connection for this UE
+    LteMacScheduleList* scheduleList_;
     UserTxParams* preconfiguredTxParams_;
 
     // Conflict Graph builder
     ConflictGraph* conflictGraph_;
-
+    HarqBuffersMirrorD2D harqBuffersMirrorD2D_;
+    bool firstTx;
+    // if true, use the preconfigured TX params for transmission, else use that signaled by the eNB
+    bool usePreconfiguredTxParams_;
     // parameters for conflict graph (needed when frequency reuse is enabled)
     bool reuseD2D_;
     bool reuseD2DMulti_;
 
-    simtime_t conflictGraphUpdatePeriod_;
     double conflictGraphThreshold_;
-
     // handling of D2D mode switch
     bool msHarqInterrupt_;   // if true, H-ARQ processes of D2D flows are interrupted at mode switch
-                             // otherwise, they are terminated using the old communication mode
+    // otherwise, they are terminated using the old communication mode
     bool msClearRlcBuffer_;  // if true, SDUs stored in the RLC buffer of D2D flows are dropped
+    MacNodeId ueId;
+
+    simtime_t conflictGraphUpdatePeriod_;
 
     void clearBsrBuffers(MacNodeId ueId);
 
@@ -80,7 +101,9 @@ class LteMacEnbD2D : public LteMacEnb
     /// Lower Layer Handler
     virtual void fromPhy(cPacket *pkt);
 
-  public:
+    virtual void handleSidelinkGrantRequest(cPacket*);
+
+public:
 
     LteMacEnbD2D();
     virtual ~LteMacEnbD2D();

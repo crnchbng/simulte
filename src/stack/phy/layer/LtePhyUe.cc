@@ -12,6 +12,7 @@
 #include "stack/phy/packet/LteFeedbackPkt.h"
 #include "corenetwork/lteip/IP2lte.h"
 #include "stack/phy/feedback/LteDlFeedbackGenerator.h"
+#include "stack/phy/resources/SidelinkResourceAllocation.h"
 
 Define_Module(LtePhyUe);
 
@@ -20,6 +21,7 @@ LtePhyUe::LtePhyUe()
     handoverStarter_ = NULL;
     handoverTrigger_ = NULL;
 }
+
 
 LtePhyUe::~LtePhyUe()
 {
@@ -47,12 +49,20 @@ void LtePhyUe::initialize(int stage)
         dasRssiThreshold_ = 1.0e-5;
         das_ = new DasFilter(this, binder_, NULL, dasRssiThreshold_);
 
-        servingCell_ = registerSignal("servingCell");
+        servingCell = registerSignal("servingCell");
         averageCqiDl_ = registerSignal("averageCqiDl");
         averageCqiUl_ = registerSignal("averageCqiUl");
-
+        numberReceivedPackets = registerSignal("numberReceivedPackets");
+        numberTransmittedPackets = registerSignal("numberTransmittedPackets");
+        numberAlertTransmittedPackets = registerSignal("numberAlertTransmittedPackets");
+        AlertTrPktId = registerSignal("AlertTransmittedId");
+        CAMPktId = registerSignal("CAMTransmittedId");
+        numAirFrameAlertTransmitted_ = 0;
+        numAirFrameTransmitted_ = 0;
         if (!hasListeners(averageCqiDl_))
             error("no phy listeners");
+
+
 
         WATCH(nodeType_);
         WATCH(masterId_);
@@ -64,6 +74,7 @@ void LtePhyUe::initialize(int stage)
         WATCH(hysteresisFactor_);
         WATCH(handoverDelta_);
         WATCH(das_);
+
     }
     else if (stage == inet::INITSTAGE_PHYSICAL_ENVIRONMENT)
     {
@@ -72,11 +83,11 @@ void LtePhyUe::initialize(int stage)
             // TODO register the device to the battery with two accounts, e.g. 0=tx and 1=rx
             // it only affects statistics
             //registerWithBattery("LtePhy", 2);
-//            txAmount_ = par("batteryTxCurrentAmount");
-//            rxAmount_ = par("batteryRxCurrentAmount");
-//
-//            WATCH(txAmount_);
-//            WATCH(rxAmount_);
+            //            txAmount_ = par("batteryTxCurrentAmount");
+            //            rxAmount_ = par("batteryRxCurrentAmount");
+            //
+            //            WATCH(txAmount_);
+            //            WATCH(rxAmount_);
         }
 
         txPower_ = ueTxPower_;
@@ -85,11 +96,11 @@ void LtePhyUe::initialize(int stage)
 
         handoverStarter_ = new cMessage("handoverStarter");
         mac_ = check_and_cast<LteMacUe *>(
-            getParentModule()-> // nic
-            getSubmodule("mac"));
+                getParentModule()-> // nic
+                getSubmodule("mac"));
         rlcUm_ = check_and_cast<LteRlcUm*>(
-            getParentModule()-> // nic
-            getSubmodule("rlc")->
+                getParentModule()-> // nic
+                getSubmodule("rlc")->
                 getSubmodule("um"));
     }
     else if (stage == inet::INITSTAGE_PHYSICAL_LAYER)
@@ -109,7 +120,7 @@ void LtePhyUe::initialize(int stage)
                 MacNodeId cellId = (*it)->id;
                 LtePhyBase* cellPhy = check_and_cast<LtePhyBase*>((*it)->eNodeB->getSubmodule("lteNic")->getSubmodule("phy"));
                 double cellTxPower = cellPhy->getTxPwr();
-                Coord cellPos = cellPhy->getCoord();
+                cellPos = cellPhy->getCoord();
 
                 // build a control info
                 cInfo->setSourceId(cellId);
@@ -138,9 +149,11 @@ void LtePhyUe::initialize(int stage)
 
             // set serving cell
             masterId_ = candidateMasterId_;
+            emit(servingCell,(long)masterId_);
             getAncestorPar("masterId").setIntValue(masterId_);
             currentMasterRssi_ = candidateMasterRssi_;
             updateHysteresisTh(candidateMasterRssi_);
+
         }
         else
         {
@@ -151,7 +164,7 @@ void LtePhyUe::initialize(int stage)
         EV << "LtePhyUe::initialize - Attaching to eNodeB " << masterId_ << endl;
 
         das_->setMasterRuSet(masterId_);
-        emit(servingCell_, (long)masterId_);
+
     }
     else if (stage == inet::INITSTAGE_NETWORK_LAYER_2)
     {
@@ -159,11 +172,30 @@ void LtePhyUe::initialize(int stage)
         nodeId_ = getAncestorPar("macNodeId");
         EV << "Local MacNodeId: " << nodeId_ << endl;
 
-        // get cellInfo at this stage because the next hop of the node is registered in the IP2Lte module at the INITSTAGE_NETWORK_LAYER
-        cellInfo_ = getCellInfo(nodeId_);
-        int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
-        cellInfo_->lambdaInit(nodeId_, index);
-        cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
+        LtePhyBase* ue_ = check_and_cast<LtePhyBase*>(
+                getSimulation()->getModule(binder_->getOmnetId(nodeId_))->getSubmodule("lteNic")->getSubmodule("phy"));
+        inet::Coord ueCoord = ue_->getCoord();
+
+        distanceFromEnb = ue_->getCoord().distance(cellPos);
+
+        if(distanceFromEnb<200)
+        {
+            rrcCurrentState="RRC_CONN";
+            // get cellInfo at this stage because the next hop of the node is registered in the IP2Lte module at the INITSTAGE_NETWORK_LAYER
+            cellInfo_ = getCellInfo(nodeId_);
+
+            int index = intuniform(0, binder_->phyPisaData.maxChannel() - 1);
+
+            cellInfo_->lambdaInit(nodeId_, index);
+
+            cellInfo_->channelUpdate(nodeId_, intuniform(1, binder_->phyPisaData.maxChannel2()));
+        }
+
+        else{
+            //Mode 4
+            SidelinkResourceAllocation* sensing = check_and_cast<SidelinkResourceAllocation*>(getParentModule()->getSubmodule("mode4"));
+            sensing->initialize(stage);
+        }
     }
 }
 
@@ -173,10 +205,22 @@ void LtePhyUe::handleSelfMessage(cMessage *msg)
         triggerHandover();
     else if (msg->isName("handoverTrigger"))
     {
-        doHandover();
-        delete msg;
-        handoverTrigger_ = NULL;
+        if(distanceFromEnb<200)
+        {
+            doHandover();
+            delete msg;
+            handoverTrigger_ = NULL;
+        }
     }
+    else if (msg->isName("SIB21PreConfigured"))
+    {
+        //
+        EV<<"LtePhyUe: received SIB"<<endl;
+        retrieveSIB21(msg);
+
+    }
+
+
 }
 
 void LtePhyUe::handoverHandler(LteAirFrame* frame, UserControlInfo* lteInfo)
@@ -328,7 +372,7 @@ void LtePhyUe::doHandover()
     fbGen->handleHandover(masterId_);
 
     // collect stat
-    emit(servingCell_, (long)masterId_);
+
 
     EV << NOW << " LtePhyUe::doHandover - UE " << nodeId_ << " has completed handover to eNB " << masterId_ << "... " << endl;
     binder_->removeUeHandoverTriggered(nodeId_);
@@ -391,13 +435,13 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
         return;
     }
 
-        /*
-         * This could happen if the ue associates with a new master while the old one
-         * already scheduled a packet for him: the packet is in the air while the ue changes master.
-         * Event timing:      TTI x: packet scheduled and sent for UE (tx time = 1ms)
-         *                     TTI x+0.1: ue changes master
-         *                     TTI x+1: packet from old master arrives at ue
-         */
+    /*
+     * This could happen if the ue associates with a new master while the old one
+     * already scheduled a packet for him: the packet is in the air while the ue changes master.
+     * Event timing:      TTI x: packet scheduled and sent for UE (tx time = 1ms)
+     *                     TTI x+0.1: ue changes master
+     *                     TTI x+1: packet from old master arrives at ue
+     */
     if (lteInfo->getSourceId() != masterId_)
     {
         EV << "WARNING: frame from an old master during handover: deleted " << endl;
@@ -407,7 +451,7 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
         return;
     }
 
-        // send H-ARQ feedback up
+    // send H-ARQ feedback up
     if (lteInfo->getFrameType() == HARQPKT || lteInfo->getFrameType() == GRANTPKT || lteInfo->getFrameType() == RACPKT)
     {
         handleControlMsg(frame, lteInfo);
@@ -419,7 +463,7 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
         if (lteInfo->getUserTxParams()->readCqiVector().size() == 1)
             cw = 0;
         double cqi = lteInfo->getUserTxParams()->readCqiVector()[cw];
-        emit(averageCqiDl_, cqi);
+
     }
     // apply decider to received packet
     bool result = true;
@@ -436,10 +480,10 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
              * and tx power to the sender das antenna
              */
 
-//            cc->updateHostPosition(myHostRef,das_->getAntennaCoord(*it));
+            //            cc->updateHostPosition(myHostRef,das_->getAntennaCoord(*it));
             // Set position of sender
-//            Move m;
-//            m.setStart(das_->getAntennaCoord(*it));
+            //            Move m;
+            //            m.setStart(das_->getAntennaCoord(*it));
             RemoteUnitPhyData data;
             data.txPower=lteInfo->getTxPower();
             data.m=getRadioPosition();
@@ -454,14 +498,14 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
         result = channelModel_->isCorrupted(frame,lteInfo);
     }
 
-            // update statistics
+    // update statistics
     if (result)
         numAirFrameReceived_++;
     else
         numAirFrameNotReceived_++;
 
     EV << "Handled LteAirframe with ID " << frame->getId() << " with result "
-       << ( result ? "RECEIVED" : "NOT RECEIVED" ) << endl;
+            << ( result ? "RECEIVED" : "NOT RECEIVED" ) << endl;
 
     cPacket* pkt = frame->decapsulate();
 
@@ -476,14 +520,14 @@ void LtePhyUe::handleAirFrame(cMessage* msg)
     send(pkt, upperGateOut_);
 
     if (getEnvir()->isGUI())
-    updateDisplayString();
+        updateDisplayString();
 }
 
 void LtePhyUe::handleUpperMessage(cMessage* msg)
 {
-//    if (useBattery_) {
-//    TODO     BatteryAccess::drawCurrent(txAmount_, 1);
-//    }
+    //    if (useBattery_) {
+    //    TODO     BatteryAccess::drawCurrent(txAmount_, 1);
+    //    }
 
     UserControlInfo* lteInfo = check_and_cast<UserControlInfo*>(msg->getControlInfo());
     MacNodeId dest = lteInfo->getDestId();
@@ -491,7 +535,7 @@ void LtePhyUe::handleUpperMessage(cMessage* msg)
     {
         // UE is not sending to its master!!
         EV << "ERROR: Ue preparing to send message to " << dest << "instead "
-        "of its master (" << masterId_ << ")" << endl;
+                "of its master (" << masterId_ << ")" << endl;
         endSimulation();
     }
 
@@ -506,10 +550,10 @@ void LtePhyUe::handleUpperMessage(cMessage* msg)
     if (lteInfo->getFrameType() == DATAPKT && lteInfo->getUserTxParams() != NULL)
     {
         double cqi = lteInfo->getUserTxParams()->readCqiVector()[lteInfo->getCw()];
-        if (lteInfo->getDirection() == UL)
-            emit(averageCqiUl_, cqi);
+        /*        if (lteInfo->getDirection() == UL)
+
         else if (lteInfo->getDirection() == D2D)
-            emit(averageCqiD2D_, cqi);
+            emit(averageCqiD2D_, cqi);*/
     }
 
     LtePhyBase::handleUpperMessage(msg);
@@ -553,7 +597,8 @@ void LtePhyUe::deleteOldBuffers(MacNodeId masterId)
 
     // delete macBuffer[nodeId_] at old master
     LteMacEnb *masterMac = check_and_cast<LteMacEnb *>(getSimulation()->getModule(masterOmnetId)->
-    getSubmodule("lteNic")->getSubmodule("mac"));
+            getSubmodule("lteNic")->getSubmodule("mac"));
+
     masterMac->deleteQueues(nodeId_);
 
     // delete queues for master at this ue
@@ -563,11 +608,12 @@ void LtePhyUe::deleteOldBuffers(MacNodeId masterId)
 
     // delete UmTxQueue[nodeId_] at old master
     LteRlcUm *masterRlcUm = check_and_cast<LteRlcUm*>(getSimulation()->getModule(masterOmnetId)->
-    getSubmodule("lteNic")->getSubmodule("rlc")->getSubmodule("um"));
+            getSubmodule("lteNic")->getSubmodule("rlc")->getSubmodule("um"));
     masterRlcUm->deleteQueues(nodeId_);
 
     // delete queues for master at this ue
-    rlcUm_->deleteQueues(nodeId_);
+    // rlcUm_->deleteQueues(nodeId_);
+    //throw cRuntimeError("LtePhyUe::deleteOldBuffers");
 }
 
 DasFilter* LtePhyUe::getDasFilter()
@@ -607,18 +653,19 @@ void LtePhyUe::sendFeedback(LteFeedbackDoubleVector fbDl, LteFeedbackDoubleVecto
 
     frame->setControlInfo(uinfo);
     //TODO access speed data Update channel index
-//    if (coherenceTime(move.getSpeed())<(NOW-lastFeedback_)){
-//        cellInfo_->channelIncrease(nodeId_);
-//        cellInfo_->lambdaIncrease(nodeId_,1);
-//    }
+    //    if (coherenceTime(move.getSpeed())<(NOW-lastFeedback_)){
+    //        cellInfo_->channelIncrease(nodeId_);
+    //        cellInfo_->lambdaIncrease(nodeId_,1);
+    //    }
     lastFeedback_ = NOW;
     EV << "LtePhy: " << nodeTypeToA(nodeType_) << " with id "
-       << nodeId_ << " sending feedback to the air channel" << endl;
+            << nodeId_ << " sending feedback to the air channel" << endl;
     sendUnicast(frame);
 }
 
 void LtePhyUe::finish()
 {
+
     if (getSimulation()->getSimulationStage() != CTX_FINISH)
     {
         // do this only at deletion of the module during the simulation
@@ -632,12 +679,36 @@ void LtePhyUe::finish()
         {
             amc->detachUser(nodeId_, UL);
             amc->detachUser(nodeId_, DL);
+
         }
 
         // binder call
         binder_->unregisterNextHop(masterId_, nodeId_);
+        //binder_->unregisterNode(nodeId_);
 
         // cellInfo call
         cellInfo_->detachUser(nodeId_);
     }
 }
+
+
+void LtePhyUe::retrieveSIB21(cMessage *msg)
+{
+    EV<<"Configure SIB21 parameters"<<endl;
+    SIB21* sib21 = check_and_cast<SIB21*> (msg);
+    //LteDlFeedbackGenerator* dl = check_and_cast <LteDlFeedbackGenerator*>(getParentModule()->getSubmodule("dlFbGen"));
+    SidelinkResourceAllocation* mode4 = check_and_cast<SidelinkResourceAllocation*>(getParentModule()->getSubmodule("mode4"));
+    mode4->adjacencyPSCCHPSSCH_= sib21->isAdjacencyPscchpssch();
+    mode4->subchannelSize_ = sib21->getSizeSubchannel();
+    mode4->numSubchannels_ = sib21->getNumSubchannel();
+    mode4->handleSelfMessage(sib21);
+    mode4->transmitting_=true;
+    // mode4->selectionWindowStartingSubframe_=mode4->;
+
+    //mode4->initialiseSensingWindow();
+}
+
+
+
+
+

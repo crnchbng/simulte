@@ -45,10 +45,10 @@ class LtePhyEnb;
  */
 class DasFilter
 {
-  public:
+public:
     /// Constructor: Initializes the Remote Antenna Set
     DasFilter(LtePhyBase* ltePhy, LteBinder* binder,
-        RemoteAntennaSet* ruSet, double rssiThreshold);
+            RemoteAntennaSet* ruSet, double rssiThreshold);
 
     /// Destructor: deallocates the Remote Antenna Set
     virtual ~DasFilter();
@@ -129,20 +129,13 @@ class DasFilter
      */
     friend std::ostream &operator << (std::ostream &stream, const DasFilter* das_);
 
-  private:
+private:
 
     /**
      * Class storing the physical properties of
      * each antenna (distance, power, etc...)
      */
     RemoteAntennaSet* ruSet_;
-
-    /// Set of antennas that feedback generator needs to report
-    RemoteSet reportingSet_;
-
-    /// Rssi Threshold for Antenna association
-    double rssiThreshold_;
-
     /// Pointer to the Lte Binder
     LteBinder* binder_;
 
@@ -151,6 +144,14 @@ class DasFilter
 
     /// Pointer to the Nic
     LtePhyBase* ltePhy_;
+
+    /// Set of antennas that feedback generator needs to report
+    RemoteSet reportingSet_;
+
+    /// Rssi Threshold for Antenna association
+    double rssiThreshold_;
+
+
 };
 
 #endif

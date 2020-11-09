@@ -25,6 +25,7 @@ void LteBinder::unregisterNode(MacNodeId id)
     if(nodeIds_.erase(id) != 1){
         EV_ERROR << "Cannot unregister node - node id \"" << id << "\" - not found";
     }
+    //IP-Based
     std::map<IPv4Address, MacNodeId>::iterator it;
     for(it = macNodeIdToIPAddress_.begin(); it != macNodeIdToIPAddress_.end(); )
     {
@@ -37,10 +38,58 @@ void LteBinder::unregisterNode(MacNodeId id)
             it++;
         }
     }
+    //Non-IP based
+    std::map<long, MacNodeId>::iterator jt;
+    for(jt = macNodeIdToNonIPAddress_.begin(); jt != macNodeIdToNonIPAddress_.end(); )
+    {
+        if(jt->second == id)
+        {
+            macNodeIdToNonIPAddress_.erase(jt++);
+        }
+        else
+        {
+            jt++;
+        }
+    }
+
+   std::vector<UeInfo*>::iterator position = ueList_.begin();
+   std::map<MacNodeId,inet::Coord>::iterator itb = BroadcastUeInfo.begin();
+
+   for (; position != ueList_.end(); ) // == myVector.end() means the element was not found
+        {
+       EV<<"Erasing UE information: "<<id<<" "<<(*position)->id<<endl;
+
+       if ((*position)->id==id)
+        {
+            EV<<"Erasing UE information 1: "<<id<<endl;
+            ueList_.erase(position);
+            setNodeRegisteredInSimlation(false);
+        }
+       else
+       {
+           ++position;
+       }
+        }
+
+
+
+   for (; itb != BroadcastUeInfo.end(); ++itb) // == myVector.end() means the element was not found
+        {
+       EV<<"Erasing UE information: "<<id<<" "<<itb->first<<endl;
+
+       if (itb->first==id)
+        {
+            EV<<"Removing UE from broadcast list: "<<id<<endl;
+            BroadcastUeInfo.erase(itb);
+            setNodeRegisteredInSimlation(false);
+        }
+        }
+
+
 }
 
 MacNodeId LteBinder::registerNode(cModule *module, LteNodeType type,
-    MacNodeId masterId)
+        MacNodeId masterId)
 {
     Enter_Method_Silent("registerNode");
 
@@ -49,6 +98,8 @@ MacNodeId LteBinder::registerNode(cModule *module, LteNodeType type,
     if (type == UE)
     {
         macNodeId = macNodeIdCounter_[2]++;
+        setUeId(macNodeId);
+        setNodeRegisteredInSimlation(true);
     }
     else if (type == RELAY)
     {
@@ -57,23 +108,31 @@ MacNodeId LteBinder::registerNode(cModule *module, LteNodeType type,
     else if (type == ENODEB)
     {
         macNodeId = macNodeIdCounter_[0]++;
+        setEnbId(macNodeId);
+    }
+
+    else if (type == RSUEnB)
+    {
+        macNodeId = macNodeIdCounter_[4];
+        setRsuEnbId(macNodeId);
     }
 
     EV << "LteBinder : Assigning to module " << module->getName()
-       << " with OmnetId: " << module->getId() << " and MacNodeId " << macNodeId
-       << "\n";
+               << " with OmnetId: " << module->getId() << " and MacNodeId " << macNodeId
+               << "\n";
 
     // registering new node to LteBinder
 
     nodeIds_[macNodeId] = module->getId();
 
+
     module->par("macNodeId") = macNodeId;
 
-    if (type == RELAY || type == UE)
+    if (type == RELAY || type == UE || type == RSUUE)
     {
-        registerNextHop(masterId, macNodeId);
+        //registerNextHop(masterId, macNodeId);
     }
-    else if (type == ENODEB)
+    else if (type == ENODEB || type == RSUEnB)
     {
         module->par("macCellId") = macNodeId;
         registerNextHop(macNodeId, macNodeId);
@@ -85,7 +144,7 @@ void LteBinder::registerNextHop(MacNodeId masterId, MacNodeId slaveId)
 {
     Enter_Method_Silent("registerNextHop");
     EV << "LteBinder : Registering slave " << slaveId << " to master "
-       << masterId << "\n";
+            << masterId << "\n";
 
     if (masterId != slaveId)
     {
@@ -103,13 +162,49 @@ void LteBinder::initialize(int stage)
     {
         numBands_ = par("numBands");
     }
+
+    const char * stringa;
+
+    std::vector<int> apppriority;
+    std::vector<double> appdelay;
+    std::vector<double> applossrate;
+
+    stringa = par("priority");
+    apppriority = cStringTokenizer(stringa).asIntVector();
+    stringa = par("packetDelayBudget");
+    appdelay = cStringTokenizer(stringa).asDoubleVector();
+    stringa = par("packetErrorLossRate");
+    applossrate = cStringTokenizer(stringa).asDoubleVector();
+
+    for (int i = 0; i < LTE_QCI_CLASSES; i++)
+    {
+        QCIParam_[i].priority = apppriority[i];
+        QCIParam_[i].packetDelayBudget = appdelay[i];
+        QCIParam_[i].packetErrorLossRate = applossrate[i];
+    }
+}
+
+//QCI
+int LteBinder::getQCIPriority(int QCI)
+{
+    return QCIParam_[QCI - 1].priority;
+}
+
+double LteBinder::getPacketDelayBudget(int QCI)
+{
+    return QCIParam_[QCI - 1].packetDelayBudget;
+}
+
+double LteBinder::getPacketErrorLossRate(int QCI)
+{
+    return QCIParam_[QCI - 1].packetErrorLossRate;
 }
 
 void LteBinder::unregisterNextHop(MacNodeId masterId, MacNodeId slaveId)
 {
     Enter_Method_Silent("unregisterNextHop");
     EV << "LteBinder : Unregistering slave " << slaveId << " from master "
-       << masterId << "\n";
+            << masterId << "\n";
     dMap_[masterId][slaveId] = false;
 
     if (nextHop_.size() <= slaveId)
@@ -136,11 +231,11 @@ std::map<int, OmnetId>::const_iterator LteBinder::getNodeIdListEnd()
 }
 
 MacNodeId LteBinder::getMacNodeIdFromOmnetId(OmnetId id){
-	std::map<int, OmnetId>::iterator it;
-	for (it = nodeIds_.begin(); it != nodeIds_.end(); ++it )
-	    if (it->second == id)
-	        return it->first;
-	return 0;
+    std::map<int, OmnetId>::iterator it;
+    for (it = nodeIds_.begin(); it != nodeIds_.end(); ++it )
+        if (it->second == id)
+            return it->first;
+    return 0;
 }
 
 LteMacBase* LteBinder::getMacFromMacNodeId(MacNodeId id)
@@ -310,6 +405,27 @@ bool LteBinder::checkD2DCapability(MacNodeId src, MacNodeId dst)
     return true;
 }
 
+void LteBinder::addD2DCapability(MacNodeId src, MacNodeId dst)
+{
+    if (src < UE_MIN_ID || src >= macNodeIdCounter_[2] || dst < UE_MIN_ID || dst >= macNodeIdCounter_[2])
+        throw cRuntimeError("LteBinder::addD2DCapability - Node Id not valid. Src %d Dst %d", src, dst);
+
+    d2dPeeringCapability_[src][dst] = true;
+
+    // insert initial communication mode
+    // TODO make it configurable from NED
+
+    // enable DM only if the two endpoints are served by the same cell
+    if (nextHop_[src] == nextHop_[dst])
+        d2dPeeringMap_[src][dst] = DM;
+    else
+        d2dPeeringMap_[src][dst] = IM;
+
+    EV << "LteBinder::addD2DCapability - UE " << src << " may transmit to UE " << dst << " using D2D (current mode " << ((d2dPeeringMap_[src][dst] == DM) ? "DM)" : "IM)") << endl;
+}
+
+
+
 bool LteBinder::getD2DCapability(MacNodeId src, MacNodeId dst)
 {
     if (src < UE_MIN_ID || src >= macNodeIdCounter_[2] || dst < UE_MIN_ID || dst >= macNodeIdCounter_[2])
@@ -420,3 +536,14 @@ void LteBinder::removeUeHandoverTriggered(MacNodeId nodeId)
 {
     ueHandoverTriggered_.erase(nodeId);
 }
+
+//periodic CAm transmissions
+void LteBinder::updatePeriodicCamTransmissions(MacNodeId nodeId_, double startTransmissions)
+{
+    camTransmissionInfo.emplace_back(nodeId_, startTransmissions);
+}
+
+
+
+
+

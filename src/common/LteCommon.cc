@@ -26,6 +26,8 @@ const std::string lteTrafficClassToA(LteTrafficClass type)
             return "INTERACTIVE";
         case BACKGROUND:
             return "BACKGROUND";
+        case CAM:
+            return "CAM";
         default:
             return "UNKNOWN_TRAFFIC_TYPE";
     }
@@ -41,6 +43,8 @@ LteTrafficClass aToLteTrafficClass(std::string s)
         return INTERACTIVE;
     if (s == "BACKGROUND")
         return BACKGROUND;
+    if (s == "CAM")
+        return CAM;
     return UNKNOWN_TRAFFIC_TYPE;
 }
 
@@ -95,6 +99,7 @@ const std::string dirToA(Direction dir)
     }
 }
 
+//Mode switch between Uu and PC-5
 const std::string d2dModeToA(LteD2DMode mode)
 {
     switch (mode)
@@ -107,6 +112,34 @@ const std::string d2dModeToA(LteD2DMode mode)
             return "Unrecognized";
     }
 }
+
+//Mode switch between mode 3 and mode 4
+const std::string LteSidelinkModeToA(LteSidelinkMode mode)
+{
+    switch (mode)
+    {
+        case MODE3:
+            return "Mode 3";
+        case MODE4:
+            return "Mode 4";
+        default:
+            return "Unrecognized";
+    }
+}
+
+const std::string LteRrcStateToA(LteRrcState state)
+{
+    switch (state)
+    {
+        case RRC_IDLE:
+            return "RRC_IDLE";
+        case RRC_CONN:
+            return "RRC_CONN";
+        default:
+            return "Unrecognized";
+    }
+}
+
 
 
 const std::string allocationTypeToA(RbAllocationType type)
@@ -368,6 +401,8 @@ LteNodeType getNodeTypeById(MacNodeId id)
         return RELAY;
     if (id >= UE_MIN_ID && id <= UE_MAX_ID)
         return UE;
+    if (id>=RSUEnB_MIN_ID && id >= RSUEnB_MAX_ID)
+        return RSUEnB;
     return UNKNOWN_NODE_TYPE;
 }
 

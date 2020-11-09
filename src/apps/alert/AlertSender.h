@@ -1,11 +1,4 @@
-//
-//                           SimuLTE
-//
-// This file is part of a software released under the license included in file
-// "license.pdf". This license can be also found at http://www.ltesimulator.com/
-// The above file and the present reference are part of the software itself,
-// and cannot be removed from it.
-//
+//IP Based Alert message
 
 #ifndef _LTE_ALERTSENDER_H_
 #define _LTE_ALERTSENDER_H_
@@ -20,30 +13,26 @@
 class AlertSender : public cSimpleModule
 {
     inet::UDPSocket socket;
-
-    //sender
     int nextSno_;
     int size_;
+    int localPort_;
+    int destPort_;
+    inet::L3Address destAddress_;
+    int pktId;
+
     simtime_t period_;
-
     simtime_t stopTime_;
-
     simsignal_t alertSentMsg_;
+    simsignal_t  transmittedPId;
     // ----------------------------
 
     cMessage *selfSender_;
 
-    int localPort_;
-    int destPort_;
-    inet::L3Address destAddress_;
-
-    void sendAlertPacket();
-
-  public:
+public:
     ~AlertSender();
     AlertSender();
-
-  protected:
+    void sendAlertPacket();
+protected:
 
     virtual int numInitStages() const { return inet::NUM_INIT_STAGES; }
     void initialize(int stage);

@@ -31,13 +31,13 @@
 
 class AmTxQueue : public cSimpleModule
 {
-  protected:
+protected:
 
     /*
      * SDU (upper layer PDU) currently being processed
      */
     LteRlcAmSdu * currentSdu_;
-
+    FlowControlInfo* lteInfo_;
     /*
      * SDU Fragmentation descriptor
      */
@@ -47,7 +47,7 @@ class AmTxQueue : public cSimpleModule
      * copy of LTE control info - used for sending down PDUs and control packets.
      */
 
-    FlowControlInfo* lteInfo_;
+
 
     //--------------------------------------------------------------------------------------
     //        Buffers
@@ -70,11 +70,7 @@ class AmTxQueue : public cSimpleModule
 
     //----------------------------------------------------------------------------------------
 
-    // Received status variable
-    std::vector<bool> received_;
 
-    // Discarded status variable
-    std::vector<bool> discarded_;
 
     // Transmission window descriptor
     RlcWindowDesc txWindowDesc_;
@@ -110,8 +106,12 @@ class AmTxQueue : public cSimpleModule
 
     // map of RLC Control PDU that are waiting for ACK
     std::map<int, LteRlcAmPdu *> unackedMrw_;
+    // Received status variable
+    std::vector<bool> received_;
 
-  public:
+    // Discarded status variable
+    std::vector<bool> discarded_;
+public:
     AmTxQueue();
     virtual ~AmTxQueue();
 
@@ -132,7 +132,7 @@ class AmTxQueue : public cSimpleModule
 
     virtual void handleControlPacket(cPacket*pkt);
 
-  protected:
+protected:
 
     /**
      * Initialize

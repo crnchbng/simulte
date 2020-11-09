@@ -17,6 +17,8 @@ simple AlertReceiver like IUDPApp
     parameters:
         int localPort = default(3000);
         string interfaceTableModule;
+        
+        //Statistics collection
         @signal[alertDelay];
         @statistic[alertDelay](title="Alert Message Delay"; unit="s"; source="alertDelay"; record=mean,vector);    
         @signal[alertRcvdMsg]; 

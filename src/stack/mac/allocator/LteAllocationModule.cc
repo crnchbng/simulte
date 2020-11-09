@@ -9,6 +9,8 @@
 
 #include "stack/mac/allocator/LteAllocationModule.h"
 #include "stack/mac/layer/LteMacEnb.h"
+#include <omnetpp.h>
+
 
 LteAllocationModule::LteAllocationModule(LteMacEnb *mac, Direction direction)
 {
@@ -192,8 +194,14 @@ unsigned int LteAllocationModule::availableBlocks(const MacNodeId nodeId, const 
     Plane plane = getOFDMPlane(nodeId);
 
     unsigned int blocksPerBand = (totalRbsMatrix_[plane][antenna]) / bands_;
+    EV<<"Total rbs Matrix: "<<totalRbsMatrix_[plane][antenna]<<endl;
+    EV<<"No of bands: "<<bands_<<endl;
+    EV<<"LteAllocationModule::availableBlocks blockPerBand: "<<blocksPerBand<< endl;
+
     // blocks allocated in the current band
     unsigned int allocatedBlocks = allocatedRbsPerBand_[plane][antenna][band].allocated_;
+
+    EV<<"LteAllocationModule::availableBlocks allocatedBlocks: "<<allocatedBlocks<<endl;
 
     if (blocksPerBand >= allocatedBlocks)
     {

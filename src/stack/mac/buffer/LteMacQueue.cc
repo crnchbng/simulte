@@ -9,6 +9,7 @@
 
 #include <climits>
 #include "stack/mac/buffer/LteMacQueue.h"
+#include "stack/rlc/packet/LteRlcDataPdu.h"
 
 LteMacQueue::LteMacQueue(int queueSize) :
     cPacketQueue("LteMacQueue")
@@ -37,8 +38,10 @@ LteMacQueue* LteMacQueue::dup() const
 // ENQUEUE
 bool LteMacQueue::pushBack(cPacket *pkt)
 {
-    if (!isEnqueueablePacket(pkt))
-         return false; // packet queue full or we have discarded fragments for this main packet
+    EV<<"LteMacQueue::pushBack"<<endl;
+    //EV<<"Packet Enqueueable status: "<<isEnqueueablePacket(pkt)<<endl;
+    /*if (!isEnqueueablePacket(pkt))
+         return false; // packet queue full or we have discarded fragments for this main packet*/
 
     cPacketQueue::insert(pkt);
     return true;
@@ -79,7 +82,11 @@ int64_t LteMacQueue::getQueueSize() const
 }
 
 bool LteMacQueue::isEnqueueablePacket(cPacket* pkt){
-    LteRlcPdu_Base* pdu = dynamic_cast<LteRlcPdu_Base *>(pkt);
+
+    EV<<"Packet name: "<<pkt->getName()<<endl;
+
+    LteRlcPdu_Base* pdu = check_and_cast<LteRlcPdu_Base *>(pkt);
+
     if(queueSize_ == 0){
         // unlimited queue size -- nothing to check for
         return true;

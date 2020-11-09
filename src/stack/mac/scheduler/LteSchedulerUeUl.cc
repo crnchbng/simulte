@@ -35,7 +35,10 @@ LteSchedulerUeUl::schedule()
 
     // get the grant
     const LteSchedulingGrant* grant = mac_->getSchedulingGrant();
+    EV<<"Grant: "<<grant<<endl;
+
     Direction dir = grant->getDirection();
+    EV<<"Direction: "<<grant->getDirection();
 
     // get the nodeId of the mac owner node
     MacNodeId nodeId = mac_->getMacNodeId();

@@ -82,7 +82,7 @@ bool LteHarqUnitTxD2D::pduFeedback(HarqAcknowledgment a)
     }
 
     LteMacBase* ue;
-    if (dir == DL || dir == D2D || dir == D2D_MULTI)
+    if (dir == DL || dir == D2D)
     {
         ue = dstMac_;
     }
@@ -96,7 +96,7 @@ bool LteHarqUnitTxD2D::pduFeedback(HarqAcknowledgment a)
     }
 
     // emit H-ARQ statistics
-    if (dir == D2D || dir == D2D_MULTI)
+    if (dir == D2D)
     {
         switch (ntx)
         {
@@ -118,7 +118,7 @@ bool LteHarqUnitTxD2D::pduFeedback(HarqAcknowledgment a)
 
         check_and_cast<LteMacUeD2D*>(ue)->emit(harqErrorRateD2D_, sample);
 
-        if (reset || dir == D2D_MULTI)
+        if (reset)
         {
             check_and_cast<LteMacUeD2D*>(ue)->emit(macPacketLossD2D_, sample);
             check_and_cast<LteMacEnbD2D*>(nodeB_)->emit(macCellPacketLossD2D_, sample);
@@ -165,12 +165,13 @@ LteMacPdu *LteHarqUnitTxD2D::extractPdu()
     transmissions_++;
     status_ = TXHARQ_PDU_WAITING; // waiting for feedback
     UserControlInfo *lteInfo = check_and_cast<UserControlInfo *>(
-        pdu_->getControlInfo());
+    pdu_->getControlInfo());
     lteInfo->setTxNumber(transmissions_);
     lteInfo->setNdi((transmissions_ == 1) ? true : false);
     EV << "LteHarqUnitTxD2D::extractPdu - ndi set to " << ((transmissions_ == 1) ? "true" : "false") << endl;
 
     LteMacPdu* extractedPdu = pdu_->dup();
+
     if (lteInfo->getDirection() == D2D_MULTI)
     {
         // for multicast, there is no feedback to wait, so reset the unit.

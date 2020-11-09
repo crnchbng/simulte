@@ -66,8 +66,8 @@ class UmTxEntity : public cSimpleModule
      */
     void rlcPduMake(int pduSize);
 
-    void setFlowControlInfo(FlowControlInfo* lteInfo) { flowControlInfo_ = lteInfo; }
-    FlowControlInfo* getFlowControlInfo() { return flowControlInfo_; }
+    void setFlowControlInfo(LteControlInfo* lteInfo) { flowControlInfo_ = lteInfo; }
+    LteControlInfo* getFlowControlInfo() { return flowControlInfo_; }
 
     // force the sequence number to assume the sno passed as argument
     void setNextSequenceNumber(unsigned int nextSno) { sno_ = nextSno; }
@@ -93,9 +93,6 @@ class UmTxEntity : public cSimpleModule
     // return the value of notifyEmptyBuffer_
     bool isEmptyingBuffer() { return notifyEmptyBuffer_; }
 
-    // returns true if this entity is for a D2D_MULTI connection
-    bool isD2DMultiConnection() { return (flowControlInfo_->getDirection() == D2D_MULTI); }
-
     // called when a D2D mode switch is triggered
     void rlcHandleD2DModeSwitch(bool oldConnection, bool clearBuffer=true);
 
@@ -108,7 +105,7 @@ class UmTxEntity : public cSimpleModule
      * Flow-related info.
      * Initialized with the control info of the first packet of the flow
      */
-    FlowControlInfo* flowControlInfo_;
+    LteControlInfo* flowControlInfo_;
 
     /*
      * The SDU enqueue buffer.

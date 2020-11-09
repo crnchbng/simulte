@@ -12,8 +12,10 @@
 
 #include <vector>
 #include "stack/mac/packet/LteHarqFeedback_m.h"
-#include "stack/mac/buffer/harq/LteHarqProcessTx.h"
 
+#include "stack/mac/buffer/harq/LteHarqProcessTx.h"
+#include <omnetpp.h>
+using namespace omnetpp;
 /*
  * NOTA: e' compito del mac ul usare solo il processo di turno, non c'e' nessun controllo.
  * TODO: aggiungere supporto all'uplink: funzioni in cui si specifica il processo da usare
@@ -140,7 +142,7 @@ class LteHarqBufferTx
      * @param acid the H-arq process
      */
     void dropProcess(unsigned char acid);
-
+    bool isSelected();
     /**
      * Sends simulated HARQNACK to all units of the process which contains
      * the one whose id is specified as parameter.

@@ -14,6 +14,28 @@
 #include "stack/mac/allocator/LteAllocationModule.h"
 
 // TODO
+
+LteSchedulerEnbUl::LteSchedulerEnbUl()
+
+{
+mac_= new LteMacEnb();
+}
+
+LteSchedulerEnbUl::LteSchedulerEnbUl(LteMacEnbD2D * mac)
+{
+    macd2d_ = mac;
+    lcgScheduler_ = new LcgScheduler(mac);
+}
+
+LteSchedulerEnbUl::~LteSchedulerEnbUl()
+{
+    delete lcgScheduler_;
+}
+
+
+
+
+
 bool
 LteSchedulerEnbUl::checkEligibility(MacNodeId id, Codeword& cw)
 {
@@ -41,6 +63,7 @@ LteSchedulerEnbUl::checkEligibility(MacNodeId id, Codeword& cw)
 void
 LteSchedulerEnbUl::updateHarqDescs()
 {
+
     EV << NOW << "LteSchedulerEnbUl::updateHarqDescs  cell " << mac_->getMacCellId() << endl;
 
     HarqRxBuffers::iterator it;
@@ -62,6 +85,8 @@ LteSchedulerEnbUl::updateHarqDescs()
             harqStatus_[it->first]=0;
         }
     }
+    
+    EV<<"LteSchedulerEnbUl::updateHarqDescs  completed"<<endl;
 }
 
 bool LteSchedulerEnbUl::racschedule()

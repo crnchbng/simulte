@@ -12,6 +12,8 @@
 
 #include <omnetpp.h>
 #include "stack/rlc/packet/LteRlcPdu_m.h"
+#include "stack/rlc/packet/LteRlcPdu.h"
+
 
 using namespace omnetpp;
 
@@ -138,6 +140,7 @@ class LteMacQueue : public cPacketQueue
      *
      */
     bool isEnqueueablePacket(cPacket* pkt);
+    LteRlcPdu* pdu ;
     unsigned int lastUnenqueueableMainSno; //<seq. number of
   private:
     /// Size of queue

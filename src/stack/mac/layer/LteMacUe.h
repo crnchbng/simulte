@@ -20,10 +20,7 @@ class LteBinder;
 
 class LteMacUe : public LteMacBase
 {
-  protected:
-    // false if currentHarq_ counter needs to be initialized
-    bool firstTx;
-
+protected:
     LteSchedulerUeUl* lcgScheduler_;
 
     // configured grant - one each codeword
@@ -31,31 +28,25 @@ class LteMacUe : public LteMacBase
 
     /// List of scheduled connection for this UE
     LteMacScheduleList* scheduleList_;
-
+    // false if currentHarq_ counter needs to be initialized
+    bool firstTx;
     // current H-ARQ process counter
     unsigned char currentHarq_;
-
     // perodic grant handling
     unsigned int periodCounter_;
     unsigned int expirationCounter_;
-
     // number of MAC SDUs requested to the RLC
     int requestedSdus_;
-
     bool debugHarq_;
-
     // RAC Handling variables
-
     bool racRequested_;
     unsigned int racBackoffTimer_;
     unsigned int maxRacTryouts_;
     unsigned int currentRacTry_;
     unsigned int minRacBackoff_;
     unsigned int maxRacBackoff_;
-
     unsigned int raRespTimer_;
     unsigned int raRespWinStart_;
-
     // BSR handling
     bool bsrTriggered_;
 
@@ -97,7 +88,7 @@ class LteMacUe : public LteMacBase
      * requesting MAC SDUs (one for each CID),
      * according to the Schedule List.
      */
-    virtual int macSduRequest();
+    virtual int macSduRequest(LteSidelinkGrant* grant, LteMacScheduleList* scheduleList_);
 
     /**
      * bufferizePacket() is called every time a packet is
@@ -114,7 +105,7 @@ class LteMacUe : public LteMacBase
      * On UE it also adds a BSR control element to the MAC PDU
      * containing the size of its buffer (for that CID)
      */
-    virtual void macPduMake(MacCid cid = 0);
+    virtual void macPduMake(MacCid );
 
     /**
      * macPduUnmake() extracts SDUs from a received MAC
@@ -128,7 +119,7 @@ class LteMacUe : public LteMacBase
      * handleUpperMessage() is called every time a packet is
      * received from the upper layer
      */
-    virtual void handleUpperMessage(cPacket* pkt);
+    //virtual void handleUpperMessage(cPacket* pkt);
 
     /**
      * Main loop
@@ -158,8 +149,9 @@ class LteMacUe : public LteMacBase
      * Flush Tx H-ARQ buffers for the user
      */
     virtual void flushHarqBuffers();
+    virtual void handleUpperMessage(cPacket* pkt);
 
-  public:
+public:
     LteMacUe();
     virtual ~LteMacUe();
 

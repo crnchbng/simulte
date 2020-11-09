@@ -33,7 +33,7 @@ void LtePhyBase::initialize(int stage)
         upperGateIn_ = findGate("upperGateIn");
         upperGateOut_ = findGate("upperGateOut");
         radioInGate_ = findGate("radioIn");
-
+        control_ = findGate("control");
         // Initialize and watch statistics
         numAirFrameReceived_ = numAirFrameNotReceived_ = 0;
         ueTxPower_ = par("ueTxPower");
@@ -56,43 +56,61 @@ void LtePhyBase::initialize(int stage)
 
 void LtePhyBase::handleMessage(cMessage* msg)
 {
-    EV << " LtePhyBase::handleMessage - new message received" << endl;
+    EV << " LtePhyBase::handleMessage - new message received" <<  msg->getSenderModule()<<" "<<msg->getName()<<endl;
 
     if (msg->isSelfMessage())
     {
+        EV<<"LtePhyBase:: handling the self message"<<endl;
         handleSelfMessage(msg);
+        // throw cRuntimeError("LtePhyBase::handleMessage");
     }
     // AirFrame
     else if (msg->getArrivalGate()->getId() == radioInGate_)
     {
+        EV<<"LtePhyBase::handleMessage: "<<msg->getName()<<endl;
         handleAirFrame(msg);
     }
+
 
     // message from stack
     else if (msg->getArrivalGate()->getId() == upperGateIn_)
     {
+        EV<<"Sender Module 1: "<<msg->getSenderModule()<<endl;
         handleUpperMessage(msg);
     }
+    else if (msg->isName("SIB21PreConfigured"))
+    {
+        EV<<"LtePhyBase::handleMessage SIB 21 message"<<endl;
+        handleSelfMessage(msg);
+    }
+
     // unknown message
     else
     {
         EV << "Unknown message received." << endl;
+
         delete msg;
     }
 }
 
 void LtePhyBase::handleControlMsg(LteAirFrame *frame,
-    UserControlInfo *userInfo)
+        UserControlInfo *userInfo)
 {
+    EV<<"LtePhyBase::handleControlMsg"<<frame<<endl;
+
     cPacket *pkt = frame->decapsulate();
+    EV<<"Sending pkt to MAC layer: "<<pkt->getName()<<endl;
     delete frame;
     pkt->setControlInfo(userInfo);
+
+    EV<<"Sending pkt to MAC layer: "<<pkt->getName()<<endl;
     send(pkt, upperGateOut_);
     return;
 }
 
 LteAirFrame *LtePhyBase::createHandoverMessage()
 {
+    EV<<"LtePhyBase::createHandoverMessage"<<endl;
     // broadcast airframe
     LteAirFrame *bdcAirFrame = new LteAirFrame("handoverFrame");
     UserControlInfo *cInfo = new UserControlInfo();
@@ -115,16 +133,20 @@ void LtePhyBase::handleUpperMessage(cMessage* msg)
     EV << "LtePhy: message from stack" << endl;
 
     UserControlInfo* lteInfo = check_and_cast<UserControlInfo*>(
-        msg->removeControlInfo());
+            msg->removeControlInfo());
 
     LteAirFrame* frame = NULL;
 
     if (lteInfo->getFrameType() == HARQPKT
-        || lteInfo->getFrameType() == GRANTPKT
-        || lteInfo->getFrameType() == RACPKT
-        || lteInfo->getFrameType() == D2DMODESWITCHPKT)
+            || lteInfo->getFrameType() == GRANTPKT
+            || lteInfo->getFrameType() == RACPKT
+            || lteInfo->getFrameType() == D2DMODESWITCHPKT)
     {
+
         frame = new LteAirFrame("harqFeedback-grant");
+    }
+    else if (lteInfo->getFrameType()==SIDELINKGRANT){
+        frame = new LteAirFrame("LTE sidelink-grant");
     }
     else
     {
@@ -148,7 +170,7 @@ void LtePhyBase::handleUpperMessage(cMessage* msg)
     frame->setControlInfo(lteInfo);
 
     EV << "LtePhy: " << nodeTypeToA(nodeType_) << " with id " << nodeId_
-       << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
+            << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
     sendUnicast(frame);
 }
 
@@ -173,45 +195,9 @@ void LtePhyBase::updateDisplayString()
 void LtePhyBase::sendBroadcast(LteAirFrame *airFrame)
 {
     // delegate the ChannelControl to send the airframe
+    Enter_Method("LtePhyBase::sendBroadcast");
+
     sendToChannel(airFrame);
-
-//    const ChannelControl::RadioRefVector& gateList = cc->getNeighbors(myRadioRef);
-//    ChannelControl::radioRefVector::const_iterator i = gateList.begin();
-//    UserControlInfo *ci = check_and_cast<UserControlInfo *>(
-//            airFrame->getControlInfo());
-//
-//    if (i != gateList.end()) {
-//        EV << "Sending broadcast message to " << gateList.size() << " NICs"
-//                << endl;
-// all gates
-//        for(; i != gateList.end(); ++i){
-//            // gate ID of the NIC
-//            int radioStart = (*i)->host->gate("radioIn",0);  //       ->second->getId();
-//            int radioEnd = radioStart + (*i)->host->gateSize("radioIn");
-//            // all gates' indexes (if it is a gate array)
-//            for (int g = radioStart; g != radioEnd; ++g) {
-//                LteAirFrame *af = airFrame->dup();
-//                af->setControlInfo(ci->dup());
-//                sendDirect(af, i->second->getOwnerModule(), g);
-//            }
-//        }
-
-//        // last receiving nic
-//        int radioStart = (*i)->host->gate("radioIn",0);  //       ->second->getId();
-//        int radioEnd = radioStart + (*i)->host->gateSize("radioIn");
-//        // send until last - 1 gate, or doesn't enter if it is not a gate array
-//        for (int g = radioStart; g != --radioEnd; ++g){
-//            LteAirFrame *af = airFrame->dup();
-//            af->setControlInfo(ci->dup());
-//            sendDirect(af, i->second->getOwnerModule(), g);
-//        }
-//
-//        // send the original message to the last gate of the last NIC
-//        sendDirect(airFrame, i->second->getOwnerModule(), radioEnd);
-//    } else {
-//        EV << "NIC is not connected to any gates!" << endl;
-//        delete airFrame;
-//    }
 }
 
 LteAmc *LtePhyBase::getAmcModule(MacNodeId id)
@@ -222,8 +208,8 @@ LteAmc *LtePhyBase::getAmcModule(MacNodeId id)
         return NULL;
 
     amc = check_and_cast<LteMacEnb *>(
-        getSimulation()->getModule(omid)->getSubmodule("lteNic")->getSubmodule(
-            "mac"))->getAmc();
+            getSimulation()->getModule(omid)->getSubmodule("lteNic")->getSubmodule(
+                    "mac"))->getAmc();
     return amc;
 }
 
@@ -238,6 +224,9 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
 
     // send the frame to nodes belonging to the multicast group only
     std::map<int, OmnetId>::const_iterator nodeIt = binder_->getNodeIdListBegin();
+
+    EV<<"LtePhyBase::sendMulticast"<<endl;
+
     for (; nodeIt != binder_->getNodeIdListEnd(); ++nodeIt)
     {
         if (nodeIt->first != nodeId_ && binder_->isInMulticastGroup(nodeIt->first, groupId))
@@ -273,8 +262,7 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
 
 void LtePhyBase::sendUnicast(LteAirFrame *frame)
 {
-    UserControlInfo *ci = check_and_cast<UserControlInfo *>(
-        frame->getControlInfo());
+    UserControlInfo *ci = check_and_cast<UserControlInfo *>(frame->getControlInfo());
     // dest MacNodeId from control info
     MacNodeId dest = ci->getDestId();
     // destination node (UE, RELAY or ENODEB) omnet id
@@ -298,15 +286,35 @@ void LtePhyBase::sendUnicast(LteAirFrame *frame)
     return;
 }
 
+void LtePhyBase::sendUpperPackets(cMessage* msg)
+{
+    // Send message
+    send(msg,upperGateOut_);
+
+}
+
 int LtePhyBase::getReceiverGateIndex(const omnetpp::cModule *receiver) const
 {
     int gate = receiver->findGate("radioIn");
+
     if (gate < 0) {
         gate = receiver->findGate("lteRadioIn");
         if (gate < 0) {
             throw cRuntimeError("receiver \"%s\" has no suitable radio input gate",
-                                receiver->getFullPath().c_str());
+                    receiver->getFullPath().c_str());
         }
     }
     return gate;
 }
+
+void LtePhyBase::deleteModule(){
+    cancelAndDelete(ttiTick_);
+    cSimpleModule::deleteModule();
+}
+
+
+
+
+
+
+

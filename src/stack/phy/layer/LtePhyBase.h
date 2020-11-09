@@ -24,6 +24,11 @@
 #include "stack/mac/amc/LteAmc.h"
 #include "stack/phy/ChannelModel/LteChannelModel.h"
 #include "stack/phy/feedback/LteFeedbackComputationRealistic.h"
+#include "stack/phy/resources/Subchannel.h"
+#include "stack/mac/packet/LteSidelinkGrant.h"
+#include "control/layer/LteRrcBase.h"
+#include "stack/phy/packet/SPSResourcePool.h"
+
 //#include "stack/phy/ChannelModel/LteRealisticChannelModel.h"
 //#include "stack/phy/ChannelModel/LteDummyChannelModel.h"
 
@@ -45,12 +50,14 @@
  */
 
 class LteChannelModel;
-
+class LteRrcBase;
+class SidelinkResourceAllocation;
 class LtePhyBase : public ChannelAccess
 {
     friend class DasFilter;
 
-  protected:
+
+protected:
 
     /**
      * Defines the scheduling priority of AirFrames.
@@ -67,6 +74,16 @@ class LtePhyBase : public ChannelAccess
     static short airFramePriority_;
     /** channel models to use.*/
     LteChannelModel* channelModel_;
+    /// Reference to LteBinder
+    LteBinder *binder_;
+
+    /// Reference to LteCellInfo
+    LteCellInfo* cellInfo_;
+    //Used only for PisaPhy
+    LteFeedbackComputation* lteFeedbackComputation_;
+    // Attenuation array
+    AttenuationVector attenuationVector_;
+    cMessage* ttiTick_;
 
     /** The id of the in-data gate from the Stack */
     int upperGateIn_;
@@ -75,11 +92,16 @@ class LtePhyBase : public ChannelAccess
     /** The id of the radioIn gate to receive LteAirFrames */
     int radioInGate_;
 
+    int control_;
     /** Pointer to the World Utility, to obtain some global information*/
     //BaseWorldUtility* world_;
     /** Statistics */
     unsigned int numAirFrameReceived_;    /// number of LteAirFrame correctly received
+    unsigned int numAirFrameTransmitted_;  // Number of air frames transmitted
     unsigned int numAirFrameNotReceived_; /// number of LteAirFrame not received
+
+    /*Statistics Alert packets*/
+    int numAirFrameAlertTransmitted_;
 
     /** Local device MacNodeId */
     MacNodeId nodeId_;
@@ -88,18 +110,10 @@ class LtePhyBase : public ChannelAccess
     // TODO maybe will become not useful
     LteNodeType nodeType_;
 
-    /// Reference to LteBinder
-    LteBinder *binder_;
-
-    /// Reference to LteCellInfo
-    LteCellInfo* cellInfo_;
-
     // used in multicast D2D to prevent a send direct towards out-of-range UEs. Range is expressed via multicastD2DRange_
     bool enableMulticastD2DRangeCheck_;
-
     // used with the enableMulticastD2DRangeCheck_ parameter
     double multicastD2DRange_;
-
     /*
      * If true, UEs associate to the best serving cell at initialization
      */
@@ -119,17 +133,8 @@ class LtePhyBase : public ChannelAccess
     TxDirectionType txDirection_;
     // Tx Angle
     double txAngle_;
-    // Attenuation array
-    AttenuationVector attenuationVector_;
-    //Used only for PisaPhy
-    LteFeedbackComputation* lteFeedbackComputation_;
-
     double carrierFrequency_;
-    //Statistics
-    simsignal_t averageCqiDl_;
-    simsignal_t averageCqiUl_;
-    simsignal_t averageCqiD2D_;
-
+    int cResel;
     // User that are trasmitting (uplink)
     //receiveng(downlink) current packet
     MacNodeId connectedNodeId_;
@@ -137,7 +142,15 @@ class LtePhyBase : public ChannelAccess
     // last time that the node has transmitted (currently, used only by UEs)
     simtime_t lastActive_;
 
-    public:
+    //Statistics
+    simsignal_t numberAlertTransmittedPackets;
+    simsignal_t averageCqiDl_;
+    simsignal_t averageCqiUl_;
+    simsignal_t averageCqiD2D_;
+    simsignal_t AlertTrPktId;
+    simsignal_t CAMPktId;
+
+public:
 
     /**
      * Constructor
@@ -174,8 +187,10 @@ class LtePhyBase : public ChannelAccess
     {
         return txAngle_;
     }
-
-  protected:
+    virtual void sendBroadcast(LteAirFrame *airFrame);
+    virtual void sendUnicast(LteAirFrame *airFrame);
+    void sendUpperPackets(cMessage* msg);
+protected:
 
     /**
      * Performs initialization operations to prepare gates' IDs, analog models,
@@ -207,7 +222,7 @@ class LtePhyBase : public ChannelAccess
      *
      * Frames are sent with zero transmission delay.
      */
-    virtual void sendBroadcast(LteAirFrame *airFrame);
+
 
     /**
      * Sends a frame to the modules registered to the multicast group indicated in the frame
@@ -221,9 +236,10 @@ class LtePhyBase : public ChannelAccess
      *
      * Delay is calculated based on sender's and receiver's positions.
      */
-    virtual void sendUnicast(LteAirFrame *airFrame);
 
-  protected:
+
+protected:
+    std::vector<std::vector<std::pair<Band,double>>> rssiVector;
 
     /**
      * Sends the given message to the wireless channel.
@@ -239,6 +255,7 @@ class LtePhyBase : public ChannelAccess
      * @param msg packet received from LteStack
      */
     virtual void handleUpperMessage(cMessage* msg);
+
 
     /**
      * Processes messages received from the wireless channel.
@@ -273,6 +290,9 @@ class LtePhyBase : public ChannelAccess
      *
      * @param msg LteAirFrame received from the air channel
      */
+
+
+
     virtual void handleAirFrame(cMessage* msg) = 0;
 
     virtual void handleSelfMessage(cMessage *msg) = 0;
@@ -302,16 +322,30 @@ class LtePhyBase : public ChannelAccess
      * Determine radio gate index of receiving node
      */
     int getReceiverGateIndex(const omnetpp::cModule*) const;
+    virtual void deleteModule();
 
-  public:
+public:
     /*
      * Returns the current position of the node
      */
-    const inet::Coord& getCoord() { return getRadioPosition(); }
+    const inet::Coord& getCoord() {
+
+        return getRadioPosition(); }
     /*
      * Returns the time of the last transmission performed
      */
     simtime_t getLastActive() { return lastActive_; }
+
+    virtual  std::vector<std::vector<std::pair<Band,double>>> getRSSIVector()
+                    {
+        return rssiVector;
+                    }
+
+    virtual void setRSSIVector(std::vector<std::vector<std::pair<Band,double>>> rssiVector)
+    {
+        this->rssiVector=rssiVector;
+    }
+
 };
 
 #endif  /* _LTE_AIRPHYBASE_H_ */

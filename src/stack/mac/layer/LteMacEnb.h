@@ -22,19 +22,21 @@ class ConflictGraph;
 
 class LteMacEnb : public LteMacBase
 {
-  protected:
+protected:
     /// Local LteCellInfo
     LteCellInfo *cellInfo_;
 
     /// Lte AMC module
     LteAmc *amc_;
-
-    /// Number of antennas (MACRO included)
-    int numAntennas_;
-
     /// List of scheduled users - Downlink
     LteMacScheduleList* scheduleListDl_;
+    /// Lte Mac Scheduler - Downlink
+    LteSchedulerEnbDl* enbSchedulerDl_;
 
+    /// Lte Mac Scheduler - Uplink
+    LteSchedulerEnbUl* enbSchedulerUl_;
+    /// Number of antennas (MACRO included)
+    int numAntennas_;
     int eNodeBCount;
 
     /**
@@ -45,11 +47,32 @@ class LteMacEnb : public LteMacBase
     // Current subframe type
     LteSubFrameType currentSubFrameType_;
     // MBSFN pattern
-//        std::vector<LteSubFrameType> mbsfnPattern_;
+    //        std::vector<LteSubFrameType> mbsfnPattern_;
     //frame index in the mbsfn pattern
     int frameIndex_;
     //number of resource block allcated in last tti
     unsigned int lastTtiAllocatedRb_;
+    /// Buffer for the BSRs
+    LteMacBufferMap bsrbuf_;
+
+    /// Number of RB Dl
+    int numRbDl_;
+
+    /// Number of RB Ul
+    int numRbUl_;
+
+    //Sidelink
+    // current H-ARQ process counter
+    unsigned char currentHarq_;
+
+    // perodic grant handling
+    unsigned int periodCounter_;
+    unsigned int expirationCounter_;
+
+    // number of MAC SDUs requested to the RLC
+    int requestedSdus_;
+
+    bool debugHarq_;
 
     /*******************************************************************************************/
     // Resource Elements per Rb
@@ -57,21 +80,6 @@ class LteMacEnb : public LteMacBase
 
     // Resource Elements per Rb - MBSFN frames
     std::vector<double> rePerRbMbsfn_;
-
-    /// Buffer for the BSRs
-    LteMacBufferMap bsrbuf_;
-
-    /// Lte Mac Scheduler - Downlink
-    LteSchedulerEnbDl* enbSchedulerDl_;
-
-    /// Lte Mac Scheduler - Uplink
-    LteSchedulerEnbUl* enbSchedulerUl_;
-
-    /// Number of RB Dl
-    int numRbDl_;
-
-    /// Number of RB Ul
-    int numRbUl_;
 
     /**
      * Reads MAC parameters for eNb and performs initialization.
@@ -164,7 +172,7 @@ class LteMacEnb : public LteMacBase
      */
     virtual void flushHarqBuffers();
 
-  public:
+public:
 
     LteMacEnb();
     virtual ~LteMacEnb();

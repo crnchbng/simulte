@@ -46,9 +46,23 @@ void IP2lte::initialize(int stage)
         if (nodeType_ == ENODEB)
         {
             // TODO not so elegant
+            EV<<"EnB ip2lte"<<endl;
             cModule *enodeb = getParentModule()->getParentModule();
             MacNodeId cellId = getBinder()->registerNode(enodeb, nodeType_);
             nodeId_ = cellId;
+            binder_->setEnbId(nodeId_);
+            registerInterface();
+        }
+
+        EV<<"Nodetype IP2lte: "<<nodeType_<<endl;
+
+       if (nodeType_ == 6)
+        {
+            // TODO not so elegant
+            EV<<"RSUEnB ip2lte"<<endl;
+            cModule *rsuenodeb = getParentModule()->getParentModule();
+            MacNodeId nodeId = getBinder()->getRsuEnbId();
+            binder_->setRsuEnbId(nodeId);
             registerInterface();
         }
     }
@@ -58,7 +72,10 @@ void IP2lte::initialize(int stage)
         {
             // TODO not so elegant
             cModule *ue = getParentModule()->getParentModule();
-            nodeId_ = binder_->registerNode(ue, nodeType_, ue->par("masterId"));
+            //nodeId_ = binder_->registerNode(ue, nodeType_, ue->par("masterId"));
+            nodeId_ = binder_->getUeId();
+            binder_->setUeId(nodeId_);
+            //binder_->registerNextHop(binder_->getEnbId(), nodeId_);
             registerInterface();
 
             // if the UE has been created dynamically, we need to manually add a default route having "wlan" as output interface
@@ -86,7 +103,7 @@ void IP2lte::initialize(int stage)
 
 void IP2lte::handleMessage(cMessage *msg)
 {
-    if( nodeType_ == ENODEB )
+    if( nodeType_ == ENODEB || nodeType_ == RSUEnB)
     {
         // message from IP Layer: send to stack
         if (msg->getArrivalGate()->isName("upperLayerIn"))
@@ -112,6 +129,8 @@ void IP2lte::handleMessage(cMessage *msg)
         {
             IPv4Datagram *ipDatagram = check_and_cast<IPv4Datagram *>(msg);
             EV << "LteIp: message from transport: send to stack" << endl;
+
+
             fromIpUe(ipDatagram);
         }
         else if(msg->getArrivalGate()->isName("stackLte$i"))
@@ -127,6 +146,11 @@ void IP2lte::handleMessage(cMessage *msg)
             delete msg;
             EV << "LteIp (UE): Wrong gate " << msg->getArrivalGate()->getName() << endl;
         }
+    }
+
+    else if (msg->isName("enbCoord"))
+    {
+        throw cRuntimeError("IP2LTE");
     }
 }
 
@@ -334,6 +358,8 @@ void IP2lte::registerInterface()
 {
     InterfaceEntry * interfaceEntry;
     IInterfaceTable *ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
+    EV<<"IP2lte::registerInterface Node Type: "<<this<<endl;
+
     if (!ift)
         return;
     interfaceEntry = new InterfaceEntry(this);
@@ -347,19 +373,22 @@ void IP2lte::registerInterface()
     // once this problem has been fixed, we should set multicast to false here
     interfaceEntry->setMulticast(true);
     ift->addInterface(interfaceEntry);
+
 }
 
 void IP2lte::registerMulticastGroups()
 {
     MacNodeId nodeId = check_and_cast<LteMacBase*>(getParentModule()->getSubmodule("mac"))->getMacNodeId();
-
+    EV<<"IP2lte::registerMulticastGroups() NodeId: "<<nodeId<<endl;
     // get all the multicast addresses where the node is enrolled
     InterfaceEntry * interfaceEntry;
     IInterfaceTable *ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
     if (!ift)
         return;
     interfaceEntry = ift->getInterfaceByName("wlan");
+
     unsigned int numOfAddresses = interfaceEntry->ipv4Data()->getNumOfJoinedMulticastGroups();
+    EV<<"Number of addresses: "<<numOfAddresses<<endl;
     for (unsigned int i=0; i<numOfAddresses; ++i)
     {
         IPv4Address addr = interfaceEntry->ipv4Data()->getJoinedMulticastGroup(i);
@@ -519,7 +548,7 @@ IP2lte::~IP2lte()
 
 void IP2lte::finish()
 {
-    if (getSimulation()->getSimulationStage() != CTX_FINISH)
+   if (getSimulation()->getSimulationStage() != CTX_FINISH)
     {
         // do this only at deletion of the module during the simulation
         binder_->unregisterNode(nodeId_);

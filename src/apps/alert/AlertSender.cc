@@ -43,7 +43,8 @@ void AlertSender::initialize(int stage)
     localPort_ = par("localPort");
     destPort_ = par("destPort");
     destAddress_ = inet::L3AddressResolver().resolve(par("destAddress").stringValue());
-
+    pktId = 1000;
+    transmittedPId = registerSignal("transmittedPacketId");
     socket.setOutputGate(gate("udpOut"));
     socket.bind(localPort_);
 
@@ -57,7 +58,7 @@ void AlertSender::initialize(int stage)
     socket.setMulticastOutputInterface(ie->getInterfaceId());
     // -------------------- //
 
-    alertSentMsg_ = registerSignal("alertSentMsg");
+    alertSentMsg_ = registerSignal("numberAlertGenerated");
 
     EV << "AlertSender::initialize - binding to port: local:" << localPort_ << " , dest:" << destPort_ << endl;
 
@@ -90,13 +91,15 @@ void AlertSender::sendAlertPacket()
     packet->setSno(nextSno_);
     packet->setTimestamp(simTime());
     packet->setByteLength(size_);
+    packet->setIpBased(true);
+    packet->setPktId(pktId);
     EV << "AlertSender::sendAlertPacket - Sending message [" << nextSno_ << "]\n";
 
     socket.sendTo(packet, destAddress_, destPort_);
     nextSno_++;
-
-    emit(alertSentMsg_, (long)1);
-
+    pktId++;
+    emit(alertSentMsg_, nextSno_);
+    emit(transmittedPId,pktId);
     if( simTime()< stopTime_ || stopTime_ == 0 )
         scheduleAt(simTime() + period_, selfSender_);
     else

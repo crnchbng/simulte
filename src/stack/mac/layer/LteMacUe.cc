@@ -21,11 +21,11 @@
 #include "corenetwork/binder/LteBinder.h"
 #include "stack/phy/layer/LtePhyBase.h"
 #include "stack/mac/packet/LteMacSduRequest.h"
-
+#include "stack/mac/configuration/SidelinkConfiguration.h"
 Define_Module(LteMacUe);
 
 LteMacUe::LteMacUe() :
-    LteMacBase()
+                                            LteMacBase()
 {
     firstTx = false;
     lcgScheduler_ = NULL;
@@ -52,6 +52,8 @@ LteMacUe::LteMacUe() :
     // KLUDGE: this was unitialized, this is just a guess
     harqProcesses_ = 8;
 }
+
+
 
 LteMacUe::~LteMacUe()
 {
@@ -119,7 +121,7 @@ void LteMacUe::initialize(int stage)
         LteAmc *amc = check_and_cast<LteMacEnb *>(getSimulation()->getModule(binder_->getOmnetId(cellId_))->getSubmodule("lteNic")->getSubmodule("mac"))->getAmc();
         amc->attachUser(nodeId_, UL);
         amc->attachUser(nodeId_, DL);
-
+        amc->attachUser(nodeId_, D2D);
         // find interface entry and use its address
         IInterfaceTable *interfaceTable = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
         // TODO: how do we find the LTE interface?
@@ -134,51 +136,67 @@ void LteMacUe::initialize(int stage)
 
 void LteMacUe::handleMessage(cMessage* msg)
 {
+    EV<<"LteMacUe::handleMessage"<<endl;
+
     if (msg->isSelfMessage())
     {
         if (strcmp(msg->getName(), "flushHarqMsg") == 0)
         {
+
             flushHarqBuffers();
             delete msg;
             return;
         }
     }
     LteMacBase::handleMessage(msg);
+
 }
 
-int LteMacUe::macSduRequest()
+int LteMacUe::macSduRequest(LteSidelinkGrant* grant, LteMacScheduleList* scheduleList_)
 {
     EV << "----- START LteMacUe::macSduRequest -----\n";
     int numRequestedSdus = 0;
 
     // get the number of granted bytes for each codeword
     std::vector<unsigned int> allocatedBytes;
-    for (int cw=0; cw<schedulingGrant_->getGrantedCwBytesArraySize(); cw++)
-        allocatedBytes.push_back(schedulingGrant_->getGrantedCwBytes(cw));
+    unsigned int availableBytes = 0;
 
-    LteMacScheduleList* scheduledBytesList = lcgScheduler_->getScheduledBytesList();
+
+    unsigned int codewords = grant->getCodewords();
+
+    for (int cw=0; cw < codewords; cw++)
+    {
+        allocatedBytes.push_back(grant->getGrantedCwBytes(cw));
+
+        availableBytes= grant->getGrantedCwBytes(cw);
+        EV<<"scheduledBytesList: "<<availableBytes<<endl;
+    }
+
     bool firstSdu = true;
 
     // Ask for a MAC sdu for each scheduled user on each codeword
     LteMacScheduleList::const_iterator it;
+    int sduSize = 0;
+
+    EV<<"scheduleListSize(): "<<scheduleList_->size()<<endl;
+
+
     for (it = scheduleList_->begin(); it != scheduleList_->end(); it++)
     {
         MacCid destCid = it->first.first;
         Codeword cw = it->first.second;
         MacNodeId destId = MacCidToNodeId(destCid);
 
-        std::pair<MacCid,Codeword> key(destCid, cw);
-        LteMacScheduleList::const_iterator bit = scheduledBytesList->find(key);
+        /*std::pair<MacCid,Codeword> key(destCid, cw);
 
-        unsigned int sduSize = bit->second;
-        if (firstSdu)
-        {
-            sduSize -= MAC_HEADER;    // do not consider MAC header size
-            firstSdu = false;
-        }
+        LteMacScheduleList::const_iterator bit = scheduledBytesList->find(key);*/
+
+
+        sduSize = availableBytes-MAC_HEADER;
+
 
         // consume bytes on this codeword
-        allocatedBytes[cw] -= sduSize;
+        allocatedBytes[cw] = sduSize;
 
         EV << NOW <<" LteMacUe::macSduRequest - cid[" << destCid << "] - sdu size[" << sduSize<< "B] - " << allocatedBytes[cw] << " bytes left on codeword " << cw << endl;
 
@@ -199,16 +217,32 @@ int LteMacUe::macSduRequest()
 
 bool LteMacUe::bufferizePacket(cPacket* pkt)
 {
+
+    EV<<"LteMacUe::bufferizePacket"<<pkt->getName()<<endl;
+
     if (pkt->getByteLength() == 0)
         return false;
 
     pkt->setTimestamp();        // Add timestamp with current time to packet
 
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
+
+    EV<<"Priority: "<<lteInfo->getPriority()<<endl;
+
+    retrievedPacketId = lteInfo->getPktId();
+    setPacketId(retrievedPacketId);
+
+    retrievedCAMId = lteInfo->getCAMId();
+    setCAMId(retrievedCAMId);
+
+    EV<<"Packet ID LteMacUe: "<<retrievedPacketId<<endl;
+    EV<<"CAM Id LteMacUe: "<<retrievedCAMId<<endl;
+
 
     // obtain the cid from the packet informations
     MacCid cid = ctrlInfoToMacCid(lteInfo);
-
+    LteTrafficClass tClass = (LteTrafficClass) lteInfo->getTraffic();
+    EV<<"Traffic class: "<<tClass<<endl;
     // this packet is used to signal the arrival of new data in the RLC buffers
     if (strcmp(pkt->getName(), "newDataPkt") == 0)
     {
@@ -218,6 +252,8 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
         PacketInfo vpkt(pkt->getByteLength(), pkt->getTimestamp());
 
         LteMacBufferMap::iterator it = macBuffers_.find(cid);
+        LcgMap::iterator itl = lcgMap_.begin();
+
         if (it == macBuffers_.end())
         {
             LteMacBuffer* vqueue = new LteMacBuffer();
@@ -225,16 +261,35 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
             macBuffers_[cid] = vqueue;
 
             // make a copy of lte control info and store it to traffic descriptors map
-            FlowControlInfo toStore(*lteInfo);
+            LteControlInfo toStore(*lteInfo);
             connDesc_[cid] = toStore;
             // register connection to lcg map.
-            LteTrafficClass tClass = (LteTrafficClass) lteInfo->getTraffic();
 
+            ////////////////////
+
+            if (lcgMap_.size()==1)
+            {
+                for (;itl!=lcgMap_.end();++itl)
+                {
+                    if(itl->first==4)
+                    {
+                        lcgMap_.erase(itl);
+                    }
+
+                }
+                EV<<"Size of LCG Map 3: "<<lcgMap_.size()<<endl;
+            }
+
+
+            //////////////////
             lcgMap_.insert(LcgPair(tClass, CidBufferPair(cid, macBuffers_[cid])));
 
+
+            EV<<"Size of LCG Map 1: "<<lcgMap_.size()<<endl;
+
             EV << "LteMacBuffers : Using new buffer on node: " <<
-            MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Bytes in the Queue: " <<
-            vqueue->getQueueOccupancy() << "\n";
+                    MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Bytes in the Queue: " <<
+                    vqueue->getQueueOccupancy() << "\n";
         }
         else
         {
@@ -242,8 +297,8 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
             vqueue->pushBack(vpkt);
 
             EV << "LteMacBuffers : Using old buffer on node: " <<
-            MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
-            vqueue->getQueueOccupancy() << "\n";
+                    MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
+                    vqueue->getQueueOccupancy() << "\n";
         }
 
         return true;    // notify the activation of the connection
@@ -262,8 +317,8 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
         mbuf_[cid] = queue;
 
         EV << "LteMacBuffers : Using new buffer on node: " <<
-        MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
-        queue->getQueueSize() - queue->getByteLength() << "\n";
+                MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
+                queue->getQueueSize() - queue->getByteLength() << "\n";
     }
     else
     {
@@ -288,8 +343,8 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
         }
 
         EV << "LteMacBuffers : Using old buffer on node: " <<
-        MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << "(cid: " << cid << "), Space left in the Queue: " <<
-        queue->getQueueSize() - queue->getByteLength() << "\n";
+                MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << "(cid: " << cid << "), Space left in the Queue: " <<
+                queue->getQueueSize() - queue->getByteLength() << "\n";
     }
 
     return false; // do not need to notify the activation of the connection (already done when received newDataPkt)
@@ -298,8 +353,10 @@ bool LteMacUe::bufferizePacket(cPacket* pkt)
 void LteMacUe::macPduMake(MacCid cid)
 {
     int64 size = 0;
-
+    throw cRuntimeError("LteMacUe::macPduMake");
     macPduList_.clear();
+
+    EV<<"LteMacUe::macPduMake"<<endl;
 
     //  Build a MAC pdu for each scheduled user on each codeword
     LteMacScheduleList::const_iterator it;
@@ -383,87 +440,19 @@ void LteMacUe::macPduMake(MacCid cid)
             // the tx buffer does not exist yet for this mac node id, create one
             // FIXME: hb is never deleted
             LteHarqBufferTx* hb = new LteHarqBufferTx((unsigned int) ENB_TX_HARQ_PROCESSES, this,
-                (LteMacBase*) getMacByMacNodeId(cellId_));
+                    (LteMacBase*) getMacByMacNodeId(cellId_));
             harqTxBuffers_[destId] = hb;
             txBuf = hb;
         }
         //
-//        UnitList txList = (txBuf->firstAvailable());
-//        LteHarqProcessTx * currProc = txBuf->getProcess(currentHarq_);
+        //        UnitList txList = (txBuf->firstAvailable());
+        //        LteHarqProcessTx * currProc = txBuf->getProcess(currentHarq_);
 
         // search for an empty unit within current harq process
         UnitList txList = txBuf->getEmptyUnits(currentHarq_);
-//        EV << "LteMacUe::macPduMake - [Used Acid=" << (unsigned int)txList.first << "] , [curr=" << (unsigned int)currentHarq_ << "]" << endl;
+        //        EV << "LteMacUe::macPduMake - [Used Acid=" << (unsigned int)txList.first << "] , [curr=" << (unsigned int)currentHarq_ << "]" << endl;
 
         LteMacPdu* macPkt = pit->second;
-
-        // BSR related operations
-
-        // according to the TS 36.321 v8.7.0, when there are uplink resources assigned to the UE, a BSR
-        // has to be send even if there is no data in the user's queues. In few words, a BSR is always
-        // triggered and has to be send when there are enough resources
-
-        // TODO implement differentiated BSR attach
-        //
-        //            // if there's enough space for a LONG BSR, send it
-        //            if( (availableBytes >= LONG_BSR_SIZE) ) {
-        //                // Create a PDU if data were not scheduled
-        //                if (pdu==0)
-        //                    pdu = new LteMacPdu();
-        //
-        //                if(LteDebug::trace("LteSchedulerUeUl::schedule") || LteDebug::trace("LteSchedulerUeUl::schedule@bsrTracing"))
-        //                    fprintf(stderr, "%.9f LteSchedulerUeUl::schedule - Node %d, sending a Long BSR...\n",NOW,nodeId);
-        //
-        //                // create a full BSR
-        //                pdu->ctrlPush(fullBufferStatusReport());
-        //
-        //                // do not reset BSR flag
-        //                mac_->bsrTriggered() = true;
-        //
-        //                availableBytes -= LONG_BSR_SIZE;
-        //
-        //            }
-        //
-        //            // if there's space only for a SHORT BSR and there are scheduled flows, send it
-        //            else if( (mac_->bsrTriggered() == true) && (availableBytes >= SHORT_BSR_SIZE) && (highestBackloggedFlow != -1) ) {
-        //
-        //                // Create a PDU if data were not scheduled
-        //                if (pdu==0)
-        //                    pdu = new LteMacPdu();
-        //
-        //                if(LteDebug::trace("LteSchedulerUeUl::schedule") || LteDebug::trace("LteSchedulerUeUl::schedule@bsrTracing"))
-        //                    fprintf(stderr, "%.9f LteSchedulerUeUl::schedule - Node %d, sending a Short/Truncated BSR...\n",NOW,nodeId);
-        //
-        //                // create a short BSR
-        //                pdu->ctrlPush(shortBufferStatusReport(highestBackloggedFlow));
-        //
-        //                // do not reset BSR flag
-        //                mac_->bsrTriggered() = true;
-        //
-        //                availableBytes -= SHORT_BSR_SIZE;
-        //
-        //            }
-        //            // if there's a BSR triggered but there's not enough space, collect the appropriate statistic
-        //            else if(availableBytes < SHORT_BSR_SIZE && availableBytes < LONG_BSR_SIZE) {
-        //                Stat::put(LTE_BSR_SUPPRESSED_NODE,nodeId,1.0);
-        //                Stat::put(LTE_BSR_SUPPRESSED_CELL,mac_->cellId(),1.0);
-        //            }
-        //            Stat::put (LTE_GRANT_WASTED_BYTES_UL, nodeId, availableBytes);
-        //        }
-        //
-        //        // 4) PDU creation
-        //
-        //        if (pdu!=0) {
-        //
-        //            pdu->cellId() = mac_->cellId();
-        //            pdu->nodeId() = nodeId;
-        //            pdu->direction() = mac::UL;
-        //            pdu->error() = false;
-        //
-        //            if(LteDebug::trace("LteSchedulerUeUl::schedule"))
-        //                fprintf(stderr, "%.9f LteSchedulerUeUl::schedule - Node %d, creating uplink PDU.\n", NOW, nodeId);
-        //
-        //        }
 
         if (bsrTriggered_)
         {
@@ -494,6 +483,7 @@ void LteMacUe::macPduMake(MacCid cid)
 
 void LteMacUe::macPduUnmake(cPacket* pkt)
 {
+    EV<<"LteMacUe::macPduUnmake"<<endl;
     LteMacPdu* macPkt = check_and_cast<LteMacPdu*>(pkt);
     while (macPkt->hasSdu())
     {
@@ -523,29 +513,50 @@ void LteMacUe::macPduUnmake(cPacket* pkt)
 
 void LteMacUe::handleUpperMessage(cPacket* pkt)
 {
+    EV<<"LteMacUe::handleUpperMessage "<<pkt->getName()<<endl;
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
+    if(lteInfo->getIpBased()==true)
+    {
+        ipBased=true;
+
+        setIpBased(ipBased);
+    }
+    else
+    {
+        ipBased=false;
+        setIpBased(ipBased);
+    }
+
+    // obtain the cid from the packet informations
+    MacCid cid = ctrlInfoToMacCid(lteInfo);
+
+    EV<<"Cid: "<<cid<<endl;
     // bufferize packet
     bufferizePacket(pkt);
 
+
     if (strcmp(pkt->getName(), "lteRlcFragment") == 0)
     {
+        EV<<"Byte length: "<<pkt->getByteLength()<<"requested SDUS: "<<requestedSdus_<<endl;
+
         // new MAC SDU has been received
         if (pkt->getByteLength() == 0)
             delete pkt;
 
         // build a MAC PDU only after all MAC SDUs have been received from RLC
-        requestedSdus_--;
+        //requestedSdus_--;
         if (requestedSdus_ == 0)
         {
-            macPduMake();
+
+            macPduMake(cid);
             // update current harq process id
             EV << NOW << " LteMacUe::handleMessage - incrementing counter for HARQ processes " << (unsigned int)currentHarq_ << " --> " << (currentHarq_+1)%harqProcesses_ << endl;
             currentHarq_ = (currentHarq_+1) % harqProcesses_;
+
         }
     }
-    else
-    {
-        delete pkt;
-    }
+
+
 }
 
 void LteMacUe::handleSelfMessage()
@@ -581,11 +592,11 @@ void LteMacUe::handleSelfMessage()
     {
         EV << NOW << " LteMacUe::handleSelfMessage " << nodeId_ << " NO configured grant" << endl;
 
-//        if (!bsrTriggered_)
-//        {
+        //        if (!bsrTriggered_)
+        //        {
         // if necessary, a RAC request will be sent to obtain a grant
         checkRAC();
-//        }
+        //        }
         // TODO ensure all operations done  before return ( i.e. move H-ARQ rx purge before this point)
     }
     else if (schedulingGrant_->getPeriodic())
@@ -620,30 +631,30 @@ void LteMacUe::handleSelfMessage()
             EV << "\t currentHarq_ counter initialized " << endl;
             firstTx=true;
             // the eNb will receive the first pdu in 2 TTI, thus initializing acid to 0
-//            currentHarq_ = harqRxBuffers_.begin()->second->getProcesses() - 2;
+            //            currentHarq_ = harqRxBuffers_.begin()->second->getProcesses() - 2;
             currentHarq_ = UE_TX_HARQ_PROCESSES - 2;
         }
         EV << "\t " << schedulingGrant_ << endl;
 
-//        //! \TEST  Grant Synchronization check
-//        if (!(schedulingGrant_->getPeriodic()))
-//        {
-//            if ( false /* TODO currentHarq!=grant_->getAcid()*/)
-//            {
-//                EV << NOW << "FATAL! Ue " << nodeId_ << " Current Process is " << (int)currentHarq << " while Stored grant refers to acid " << /*(int)grant_->getAcid() << */  ". Aborting.   " << endl;
-//                abort();
-//            }
-//        }
+        //        //! \TEST  Grant Synchronization check
+        //        if (!(schedulingGrant_->getPeriodic()))
+        //        {
+        //            if ( false /* TODO currentHarq!=grant_->getAcid()*/)
+        //            {
+        //                EV << NOW << "FATAL! Ue " << nodeId_ << " Current Process is " << (int)currentHarq << " while Stored grant refers to acid " << /*(int)grant_->getAcid() << */  ". Aborting.   " << endl;
+        //                abort();
+        //            }
+        //        }
 
         // TODO check if current grant is "NEW TRANSMISSION" or "RETRANSMIT" (periodic grants shall always be "newtx"
-//        if ( false/*!grant_->isNewTx() && harqQueue_->rtx(currentHarq) */)
-//        {
+        //        if ( false/*!grant_->isNewTx() && harqQueue_->rtx(currentHarq) */)
+        //        {
         //        if ( LteDebug:r:trace("LteMacUe::newSubFrame") )
         //            fprintf (stderr,"%.9f UE: [%d] Triggering retransmission for acid %d\n",NOW,nodeId_,currentHarq);
         //        // triggering retransmission --- nothing to do here, really!
-//        } else {
+        //        } else {
         // buffer drop should occour here.
-//        scheduleList = ueScheduler_->buildSchedList();
+        //        scheduleList = ueScheduler_->buildSchedList();
 
         EV << NOW << " LteMacUe::handleSelfMessage " << nodeId_ << " entered scheduling" << endl;
 
@@ -661,7 +672,7 @@ void LteMacUe::handleSelfMessage()
             CwList cwListRetx = currHarq->getProcess(currentHarq_)->readyUnitsIds();
 
             EV << "\t [process=" << (unsigned int)currentHarq_ << "] , [retx=" << ((retx)?"true":"false")
-               << "] , [n=" << cwListRetx.size() << "]" << endl;
+                                                       << "] , [n=" << cwListRetx.size() << "]" << endl;
 
             // if a retransmission is needed
             if(retx)
@@ -676,11 +687,11 @@ void LteMacUe::handleSelfMessage()
         if(!retx)
         {
             scheduleList_ = lcgScheduler_->schedule();
-            requestedSdus_ = macSduRequest();
+            //requestedSdus_ = macSduRequest();
             if (requestedSdus_ == 0)
             {
                 // no data to send, but if bsrTriggered is set, send a BSR
-                macPduMake();
+                // macPduMake();
             }
 
         }
@@ -691,12 +702,12 @@ void LteMacUe::handleSelfMessage()
         flushHarqMsg->setSchedulingPriority(1);        // after other messages
         scheduleAt(NOW, flushHarqMsg);
 
-//        // deleting non-periodic grant
-//        if (!schedulingGrant_->getPeriodic())
-//        {
-//            delete schedulingGrant_;
-//            schedulingGrant_=NULL;
-//        }
+        //        // deleting non-periodic grant
+        //        if (!schedulingGrant_->getPeriodic())
+        //        {
+        //            delete schedulingGrant_;
+        //            schedulingGrant_=NULL;
+        //        }
 
 
     }
@@ -721,7 +732,7 @@ void LteMacUe::handleSelfMessage()
             for(; jt != jet; ++jt)
             {
                 EV << "\t\t cicloInner " << cntInner << " - jt->size=" << jt->size()
-                   << " - statusCw(0/1)=" << jt->at(0).second << "/" << jt->at(1).second << endl;
+                                                           << " - statusCw(0/1)=" << jt->at(0).second << "/" << jt->at(1).second << endl;
             }
         }
     }
@@ -770,10 +781,10 @@ LteMacUe::macHandleGrant(cPacket* pkt)
     }
 
     EV << NOW << "Node " << nodeId_ << " received grant of blocks " << grant->getTotalGrantedBlocks()
-       << ", bytes " << grant->getGrantedCwBytes(0) << endl;
-//        TODO if (!grant_->isNewTx())
-//            {
-//            }
+                                               << ", bytes " << grant->getGrantedCwBytes(0) << endl;
+    //        TODO if (!grant_->isNewTx())
+    //            {
+    //            }
 
     // clearing pending RAC requests
     racRequested_=false;
@@ -821,7 +832,7 @@ void
 LteMacUe::checkRAC()
 {
     EV << NOW << " LteMacUe::checkRAC , Ue  " << nodeId_ << ", racTimer : " << racBackoffTimer_ << " maxRacTryOuts : " << maxRacTryouts_
-       << ", raRespTimer:" << raRespTimer_ << endl;
+            << ", raRespTimer:" << raRespTimer_ << endl;
 
     if (racBackoffTimer_>0)
     {
@@ -859,7 +870,7 @@ LteMacUe::checkRAC()
     }
 
     if (!trigger)
-    EV << NOW << "Ue " << nodeId_ << ",RAC aborted, no data in queues " << endl;
+        EV << NOW << "Ue " << nodeId_ << ",RAC aborted, no data in queues " << endl;
 
     if ((racRequested_=trigger))
     {
@@ -880,11 +891,17 @@ LteMacUe::checkRAC()
     }
 }
 
-void
-LteMacUe::updateUserTxParam(cPacket* pkt)
+void LteMacUe::updateUserTxParam(cPacket* pkt)
 {
+    EV<<"LteMacUe::updateUserTxParam"<<endl;
+    if (strcmp(pkt->getName(), "newDataPkt")== 0)
+    {
+        FlowControlInfoNonIp* nipInfo = check_and_cast<FlowControlInfoNonIp*>(pkt->getControlInfo());
+
+        return;
+    }
     UserControlInfo *lteInfo = check_and_cast<UserControlInfo *>
-        (pkt->getControlInfo());
+    (pkt->getControlInfo());
 
     if (lteInfo->getFrameType() != DATAPKT)
         return;
@@ -901,25 +918,31 @@ LteMacUe::updateUserTxParam(cPacket* pkt)
 
 void LteMacUe::flushHarqBuffers()
 {
-    // send the selected units to lower layers
+    EV<<"LteMacUe::flushHarqBuffers"<<endl;
+
     HarqTxBuffers::iterator it2;
+    EV<<"HarqBUffer: "<<harqTxBuffers_.size()<<endl;
+
     for(it2 = harqTxBuffers_.begin(); it2 != harqTxBuffers_.end(); it2++)
         it2->second->sendSelectedDown();
-
+    throw cRuntimeError("LteMacUe::flushHarqBuffers");
     // deleting non-periodic grant
     if (schedulingGrant_ != NULL && !schedulingGrant_->getPeriodic())
     {
         delete schedulingGrant_;
         schedulingGrant_=NULL;
     }
+
+
 }
 
-bool
-LteMacUe::getHighestBackloggedFlow(MacCid& cid, unsigned int& priority)
+bool LteMacUe::getHighestBackloggedFlow(MacCid& cid, unsigned int& priority)
 {
     // TODO : optimize if inefficient
     // TODO : implement priorities and LCGs
     // search in virtual buffer structures
+
+    EV<<"LteMacUe::getHighestBackloggedFlow"<<endl;
 
     LteMacBufferMap::const_iterator it = macBuffers_.begin(), et = macBuffers_.end();
     for (; it != et; ++it)
@@ -934,9 +957,9 @@ LteMacUe::getHighestBackloggedFlow(MacCid& cid, unsigned int& priority)
     return false;
 }
 
-bool
-LteMacUe::getLowestBackloggedFlow(MacCid& cid, unsigned int& priority)
+bool LteMacUe::getLowestBackloggedFlow(MacCid& cid, unsigned int& priority)
 {
+    EV<<"LteMacUe::getLowestBackloggedFlow"<<endl;
     // TODO : optimize if inefficient
     // TODO : implement priorities and LCGs
     LteMacBufferMap::const_reverse_iterator it = macBuffers_.rbegin(), et = macBuffers_.rend();
@@ -955,11 +978,13 @@ LteMacUe::getLowestBackloggedFlow(MacCid& cid, unsigned int& priority)
 
 void LteMacUe::doHandover(MacNodeId targetEnb)
 {
+    EV<<"LteMacUe::doHandover"<<endl;
     cellId_ = targetEnb;
 }
 
 void LteMacUe::deleteQueues(MacNodeId nodeId)
 {
+    EV<<"LteMacUe::deleteQueues"<<endl;
     LteMacBuffers::iterator mit;
     LteMacBufferMap::iterator vit;
     for (mit = mbuf_.begin(); mit != mbuf_.end(); )
@@ -990,8 +1015,8 @@ void LteMacUe::deleteQueues(MacNodeId nodeId)
     HarqRxBuffers::iterator hit2;
     for (hit2 = harqRxBuffers_.begin(); hit2 != harqRxBuffers_.end();)
     {
-         delete hit2->second; // Delete Queue
-         harqRxBuffers_.erase(hit2++); // Delete Elem
+        delete hit2->second; // Delete Queue
+        harqRxBuffers_.erase(hit2++); // Delete Elem
     }
 
     // remove traffic descriptor and lcg entry

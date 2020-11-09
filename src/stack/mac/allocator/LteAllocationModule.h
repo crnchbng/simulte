@@ -12,7 +12,7 @@
 
 #include "common/LteCommon.h"
 #include "stack/mac/allocator/LteAllocatorUtils.h"
-
+#include <cmath>
 class LteMacEnb;
 
 class LteAllocationModule

@@ -29,7 +29,13 @@ void LteRlcMux::rlc2mac(cPacket *pkt)
 
 void LteRlcMux::mac2rlc(cPacket *pkt)
 {
-    FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
+    if (strcmp(pkt->getName(), "CBR") == 0)
+{
+    EV << "LteRlcMux : Sending packet " << pkt->getName() << " to port UM_Sap$o\n";
+    send(pkt, umSap_[OUT]);
+    return;
+}
+    LteControlInfo* lteInfo = check_and_cast<LteControlInfo*>(pkt->getControlInfo());
     switch (lteInfo->getRlcType())
     {
         case TM:

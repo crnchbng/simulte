@@ -48,12 +48,20 @@ void LteCellInfo::initialize()
     eNbType_ = par("microCell").boolValue() ? MICRO_ENB : MACRO_ENB;
     numRbDl_ = par("numRbDl");
     numRbUl_ = par("numRbUl");
+    numRbSl_ = par("numRbSl");
+
     rbyDl_ = par("rbyDl");
     rbyUl_ = par("rbyUl");
+    rbySl_ = par("rbySl");
+
     rbxDl_ = par("rbxDl");
     rbxUl_ = par("rbxUl");
+    rbxSl_ = par("rbxSl");
+
     rbPilotDl_ = par("rbPilotDl");
     rbPilotUl_ = par("rbPilotUl");
+    rbPilotSl_ = par("rbPilotSl");
+
     signalDl_ = par("signalDl");
     signalUl_ = par("signalUl");
     numBands_ = binder_->getNumBands();

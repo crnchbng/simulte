@@ -11,6 +11,8 @@
 #define _LTE_AIRPHYENBD2D_H_
 
 #include "stack/phy/layer/LtePhyEnb.h"
+#include "stack/phy/resources/SidelinkResourceAllocation.h"
+#include "stack/phy/packet/SidelinkControlInformation_m.h"
 
 class LtePhyEnbD2D : public LtePhyEnb
 {
@@ -18,16 +20,16 @@ class LtePhyEnbD2D : public LtePhyEnb
 
     bool enableD2DCqiReporting_;
 
-  protected:
-
+protected:
+    MacNodeId ueId;
     virtual void initialize(int stage);
     virtual void requestFeedback(UserControlInfo* lteinfo, LteAirFrame* frame, LteFeedbackPkt* pkt);
     virtual void handleAirFrame(cMessage* msg);
 
-  public:
+public:
     LtePhyEnbD2D();
     virtual ~LtePhyEnbD2D();
-
+    virtual void handleUpperMessage(cMessage* msg);
 };
 
 #endif  /* _LTE_AIRPHYENBD2D_H_ */

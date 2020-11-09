@@ -7,6 +7,8 @@
 // and cannot be removed from it.
 //
 
+//IP based Alert receiver
+
 #ifndef _LTE_AlertReceiver_H_
 #define _LTE_AlertReceiver_H_
 

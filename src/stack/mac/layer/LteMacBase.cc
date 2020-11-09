@@ -59,18 +59,32 @@ void LteMacBase::sendUpperPackets(cPacket* pkt)
 
 void LteMacBase::sendLowerPackets(cPacket* pkt)
 {
+
     EV << "LteMacBase : Sending packet " << pkt->getName() << " on port MAC_to_PHY\n";
+
+
     // Send message
     updateUserTxParam(pkt);
+
     send(pkt,down_[OUT]);
+
     emit(sentPacketToLowerLayer, pkt);
 }
+
+void LteMacBase::sendPDULower(LteMacPdu* pdu)
+{
+    EV << "LteMacBase : Sending PDU " << pdu << " on port MAC_to_PHY\n";
+send(pdu,down_[OUT]);
+
+}
+
 
 /*
  * Upper layer handler
  */
 void LteMacBase::fromRlc(cPacket *pkt)
 {
+    EV<<" LteMacBase::fromRlc"<<endl;
     handleUpperMessage(pkt);
 }
 
@@ -79,6 +93,7 @@ void LteMacBase::fromRlc(cPacket *pkt)
  */
 void LteMacBase::fromPhy(cPacket *pkt)
 {
+    EV<<"LteMacBase::fromPhy"<<endl;
     // TODO: harq test (comment fromPhy: it has only to pass pdus to proper rx buffer and
     // to manage H-ARQ feedback)
 
@@ -131,6 +146,7 @@ void LteMacBase::fromPhy(cPacket *pkt)
         else
         {
             // FIXME: possible memory leak
+            EV<<"LteMacBase::fromPhy possible memory leak"<<endl;
             LteHarqBufferRx *hrb;
             if (userInfo->getDirection() == DL || userInfo->getDirection() == UL)
                 hrb = new LteHarqBufferRx(ENB_RX_HARQ_PROCESSES, this,src);
@@ -146,6 +162,23 @@ void LteMacBase::fromPhy(cPacket *pkt)
         EV << NOW << "Mac::fromPhy: node " << nodeId_ << " Received RAC packet" << endl;
         macHandleRac(pkt);
     }
+
+    else if (userInfo->getFrameType() == SCIPKT)
+    {
+       EV<<"LteMacBase receives SCIPKT"<<endl;
+       throw cRuntimeError("LteMacBase::SCIPKT");
+    }
+
+    else if (userInfo->getFrameType()==MODE3GRANTREQUEST ||userInfo->getFrameType()==DATAARRIVAL)
+    {
+        fromPhy(pkt);
+    }
+
+    else if(userInfo->getFrameType() == CSRPKT)
+    {
+        throw cRuntimeError("CSRPKT MAC");
+    }
+
     else
     {
         throw cRuntimeError("Unknown packet type %d", (int)userInfo->getFrameType());
@@ -155,7 +188,7 @@ void LteMacBase::fromPhy(cPacket *pkt)
 bool LteMacBase::bufferizePacket(cPacket* pkt)
 {
     pkt->setTimestamp();        // Add timestamp with current time to packet
-
+    EV<<"LteMacBase::bufferizePacket"<<endl;
     FlowControlInfo* lteInfo = check_and_cast<FlowControlInfo*>(pkt->getControlInfo());
 
     // obtain the cid from the packet informations
@@ -185,9 +218,9 @@ bool LteMacBase::bufferizePacket(cPacket* pkt)
 
         lcgMap_.insert(LcgPair(tClass, CidBufferPair(cid, macBuffers_[cid])));
 
-        EV << "LteMacBuffers : Using new buffer on node: " <<
-        MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
-        queue->getQueueSize() - queue->getByteLength() << "\n";
+        EV << "LteMacBuffers 1 LteMacBase: Using new buffer on node: " <<
+                MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
+                queue->getQueueSize() - queue->getByteLength() << "\n";
     }
     else
     {
@@ -217,17 +250,18 @@ bool LteMacBase::bufferizePacket(cPacket* pkt)
         }
         vqueue->pushBack(vpkt);
 
-        EV << "LteMacBuffers : Using old buffer on node: " <<
-        MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
-        queue->getQueueSize() - queue->getByteLength() << "\n";
+        EV << "LteMacBuffers 2 LteMacBase : Using old buffer on node: " <<
+                MacCidToNodeId(cid) << " for Lcid: " << MacCidToLcid(cid) << ", Space left in the Queue: " <<
+                queue->getQueueSize() - queue->getByteLength() << "\n";
     }
-        /// After bufferization buffers must be synchronized
+    /// After bufferization buffers must be synchronized
     assert(mbuf_[cid]->getQueueLength() == macBuffers_[cid]->getQueueLength());
     return true;
 }
 
 void LteMacBase::deleteQueues(MacNodeId nodeId)
 {
+    EV<<"LteMacBase::deleteQueues"<<endl;
     LteMacBuffers::iterator mit;
     LteMacBufferMap::iterator vit;
     for (mit = mbuf_.begin(); mit != mbuf_.end(); )
@@ -306,6 +340,8 @@ void LteMacBase::initialize(int stage)
         up_[OUT] = gate("MAC_to_RLC");
         down_[IN] = gate("PHY_to_MAC");
         down_[OUT] = gate("MAC_to_PHY");
+        control_IN = gate("control$i");
+        control_OUT = gate("control$o");
 
         /* Create buffers */
         queueSize_ = par("queueSize");
@@ -343,33 +379,41 @@ void LteMacBase::initialize(int stage)
 
 void LteMacBase::handleMessage(cMessage* msg)
 {
+
+    EV<<"LteMacBase::handleMessage Received message: "<<msg->getName()<<endl;
+
+
     if (msg->isSelfMessage())
-    {
-        handleSelfMessage();
-        scheduleAt(NOW + TTI, ttiTick_);
+        {
+            handleSelfMessage();
+            scheduleAt(NOW + TTI, ttiTick_);
+            return;
+        }
+
+        cPacket* pkt = check_and_cast<cPacket *>(msg);
+        EV << "LteMacBase : Received packet " << pkt->getName() <<
+        " from port " << pkt->getArrivalGate()->getName() << endl;
+
+        cGate* incoming = pkt->getArrivalGate();
+
+        if (incoming == down_[IN])
+        {
+            // message from PHY_to_MAC gate (from lower layer)
+            emit(receivedPacketFromLowerLayer, pkt);
+            fromPhy(pkt);
+        }
+        else
+        {
+            // message from RLC_to_MAC gate (from upper layer)
+            emit(receivedPacketFromUpperLayer, pkt);
+            fromRlc(pkt);
+        }
         return;
-    }
-
-    cPacket* pkt = check_and_cast<cPacket *>(msg);
-    EV << "LteMacBase : Received packet " << pkt->getName() <<
-    " from port " << pkt->getArrivalGate()->getName() << endl;
-
-    cGate* incoming = pkt->getArrivalGate();
-
-    if (incoming == down_[IN])
-    {
-        // message from PHY_to_MAC gate (from lower layer)
-        emit(receivedPacketFromLowerLayer, pkt);
-        fromPhy(pkt);
-    }
-    else
-    {
-        // message from RLC_to_MAC gate (from upper layer)
-        emit(receivedPacketFromUpperLayer, pkt);
-        fromRlc(pkt);
-    }
-    return;
 }
+
+
+
+
 
 void LteMacBase::finish()
 {

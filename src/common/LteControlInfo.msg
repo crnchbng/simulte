@@ -9,7 +9,7 @@
 
 
 cplusplus {{
-    #include "common/LteCommon.h"
+        #include "common/LteCommon.h"
 }}
 
 enum LtePhyFrameType;
@@ -47,29 +47,36 @@ enum LteTrafficClass;
 // - Destination MAC Node ID
 //
 class LteControlInfo {
-    //# Information shared between FlowControlInfo and UserControlInfo
-
-    uint16 sourceId;                                     // Source MacNodeId
-    uint16 destId;                                       // Destination MacNodeId
-    unsigned short direction enum(Direction);            // Traffic Direction (UL, DL, D2D)
-    uint16 d2dTxPeerId;
-    uint16 d2dRxPeerId;
-
-    //# Traffic Control Information
-
-    unsigned short application enum(ApplicationType);    // Application Type
-    unsigned short traffic enum(LteTrafficClass);        // Lte Traffic Type
-
-    //# RLC Control Information
-
-    unsigned short rlcType enum(LteRlcType);            // RLC Traffic Type
-
-    //# Connection Information
-
-    uint16 lcid;                                        // Logical Connection Identifier
-    int32 multicastGroupId = -1;                        // Identifier for a multicast group (it is in range [0:[2^28)-1] ) 
-                                                        // For unicast communications, this field is -1
-    
+        //# Information shared between FlowControlInfo and UserControlInfo
+        
+        uint16 sourceId;                                     // Source MacNodeId
+        uint16 destId;                                       // Destination MacNodeId
+        unsigned short direction enum(Direction);            // Traffic Direction (UL, DL, D2D)
+        uint16 d2dTxPeerId;
+        uint16 d2dRxPeerId;
+        
+        //# Traffic Control Information
+        
+        unsigned short application enum(ApplicationType);    // Application Type
+        unsigned short traffic enum(LteTrafficClass);        // Lte Traffic Type
+        
+        //# RLC Control Information
+        
+        unsigned short rlcType enum(LteRlcType);            // RLC Traffic Type
+        
+        //# Connection Information
+        
+        uint16 lcid;                                        // Logical Connection Identifier
+        int32 multicastGroupId = -1;                        // Identifier for a multicast group (it is in range [0:[2^28)-1] ) 
+        // For unicast communications, this field is -1
+        unsigned int sequenceNumber;                        // packet sequence number
+        
+        //Packet type related parameters - IP and Non-IP traffic
+        bool ipBased;
+        int priority;
+        int pktId;
+        int CAMId;
+        
 }
 
 //
@@ -84,15 +91,32 @@ class LteControlInfo {
 // - Connection information: Logical CID
 //
 class FlowControlInfo extends LteControlInfo {
-    //# IP Control Information
-
-    uint32 srcAddr;                                       // source IP
-    uint32 dstAddr;                                       // destination IP
-    uint16 srcPort;                                          // source port
-    uint16 dstPort;                                       // destination port
-    unsigned int sequenceNumber;                          // packet sequence number
-    int headerSize;                                       // IP + Transport header size (used by pdcp ROHC)
+        //# IP Control Information
+        
+        uint32 srcAddr;                                       // source IP
+        uint32 dstAddr;                                       // destination IP
+        uint16 srcPort;                                          // source port
+        uint16 dstPort;                                       // destination port
+        unsigned int sequenceNumber;                          // packet sequence number
+        int headerSize;                                       // IP + Transport header size (used by pdcp ROHC)
+        long duration;
+        int priority;
+        simtime_t creationTime;
+        
 }
+
+class FlowControlInfoNonIp extends LteControlInfo {
+        //# Non-IP control Information
+        int priority;
+        long duration;
+        long srcAddr;  //destination port
+        long dstAddr; //destination port
+        simtime_t creationTime;
+}
+
+
+
+
 
 //
 // @class UserControlInfo
@@ -104,35 +128,37 @@ class FlowControlInfo extends LteControlInfo {
 //   txMode, Resource blocks used, RemoteSet
 //
 class UserControlInfo extends LteControlInfo {
-    @customize(true);
-
-    //# H-ARQ Control Information
-
-    unsigned char acid;                // H-ARQ process identifier
-    unsigned char cw;                // H-ARQ codeword identifier
-    unsigned char txNumber = 0;            // number of (re)transmissions for the same pdu (1, 2, 3, 4)
-    bool ndi = true;                    // new data indicator (new data overwrites a process content if present)
-
-    //# PHY Control Informations
-
-    bool isCorruptible;                                // Frame is corruptible
-    bool isBroadcast = false;                        // Broadcast packet
-    bool deciderResult;                                // Decider result
-    double blerTh;                                    // Calculated BLER threshold for this transmission
-    double blerValue;                                // Extracted BLER for this transmission (blerValue > blerTh ==> corrupted)
-    unsigned short txMode enum(TxMode);                // Traffic Type
-    unsigned int frameType enum(LtePhyFrameType);    // Frame Type
-    double txPower;                                    //Transmission Power
-    double d2dTxPower;                                 //D2D Transmission Power (used for feedback reporting of D2D links
-    // blocks granted on all Remotes, all Bands
-    unsigned int totalGrantedBlocks;
-
-    //#
-    //# Follows a list of elements only present in
-    //# the customized class (see LteControlInfo.h):
-    //#
-    //# RemoteSet ru;                                // Remote Antenna Set
-    //# RbMap grantedBlocks;                        // Blocks allocated per Remote, per Band.
+        @customize(true);
+        
+        //# H-ARQ Control Information
+        
+        unsigned char acid;                // H-ARQ process identifier
+        unsigned char cw;                // H-ARQ codeword identifier
+        unsigned char txNumber = 0;            // number of (re)transmissions for the same pdu (1, 2, 3, 4)
+        bool ndi = true;                    // new data indicator (new data overwrites a process content if present)
+        
+        //# PHY Control Informations
+        
+        bool isCorruptible;                                // Frame is corruptible
+        bool isBroadcast = false;                        // Broadcast packet
+        bool deciderResult;                                // Decider result
+        double blerTh;                                    // Calculated BLER threshold for this transmission
+        double blerValue;                                // Extracted BLER for this transmission (blerValue > blerTh ==> corrupted)
+        unsigned short txMode enum(TxMode);                // Traffic Type
+        unsigned int frameType enum(LtePhyFrameType);    // Frame Type
+        double txPower;                                    //Transmission Power
+        double d2dTxPower;                                 //D2D Transmission Power (used for feedback reporting of D2D links
+        // blocks granted on all Remotes, all Bands
+        unsigned int totalGrantedBlocks;
+        int subchannelNumber;
+        int subchannelLength;
+        simtime_t grantStartTime;
+        //#
+        //# Follows a list of elements only present in
+        //# the customized class (see LteControlInfo.h):
+        //#
+        //# RemoteSet ru;                                // Remote Antenna Set
+        //# RbMap grantedBlocks;                        // Blocks allocated per Remote, per Band.
 }
 
 

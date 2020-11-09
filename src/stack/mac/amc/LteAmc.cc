@@ -592,7 +592,8 @@ const UserTxParams& LteAmc::computeTxParams(MacNodeId id, const Direction dir)
     EV << NOW << " LteAmc::computeTxParams detected " << nh << " as nexthop for " << id << "\n";
     id = nh;
 
-    const UserTxParams &info = pilot_->computeTxParams(id,dir);
+    const UserTxParams &info = pilot_->computeTxParams(id,dir); //AmcPilotD2D
+
     EV << NOW << " LteAmc::computeTxParams --------------::[  END  ]::--------------\n";
 
     return info;
@@ -687,9 +688,9 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, unsigned int blocks
     EV << NOW << " LteAmc::blocks2bits Direction: " << dirToA(dir) << "\n";
 
     // Acquiring current user scheduling information
-    const UserTxParams & info = computeTxParams(id, dir);
+    const UserTxParams & info = computeTxParams(id, dir); //obtain info on PMI, CQI etc
 
-    std::vector<unsigned char> layers = info.getLayers();
+    std::vector<unsigned char> layers = info.getLayers(); //Layer 0,1,2,3
 
     unsigned int bits = 0;
     unsigned int codewords = layers.size();
@@ -762,6 +763,7 @@ unsigned int LteAmc::computeBitsOnNRbs(MacNodeId id, Band b, Codeword cw, unsign
 
     const unsigned int* tbsVect = itbs2tbs(mod, info.readTxMode(), layers, iTbs - i);
 
+    EV<<"LteAmc::computeBitsOnNRbs tbsVect: "<<*tbsVect<<endl;
     // DEBUG
     EV << NOW << " LteAmc::blocks2bits Resource Blocks: " << blocks << "\n";
     EV << NOW << " LteAmc::blocks2bits Available space: " << tbsVect[blocks-1] << "\n";
@@ -793,8 +795,8 @@ unsigned int LteAmc::computeBytesOnNRbs(MacNodeId id, Band b, Codeword cw, unsig
 
     // DEBUG
     EV << NOW << " LteAmc::blocks2bytes Resource Blocks: " << blocks << "\n";
-    EV << NOW << " LteAmc::blocks2bytes Available space: " << bits << "\n";
-    EV << NOW << " LteAmc::blocks2bytes Available space: " << bytes << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space in terms of number of bits: " << bits << "\n";
+    EV << NOW << " LteAmc::blocks2bytes Available space in terms of number of bytes: " << bytes << "\n";
 
     return bytes;
 }
@@ -1272,13 +1274,17 @@ void LteAmc::detachUser(MacNodeId nodeId, Direction dir)
         ConnectedUesMap *connectedUe;
         std::vector<UserTxParams> *userInfoVec;
         History_ *history;
+
         std::map<MacNodeId, History_>* d2dHistory;
+
+        //throw cRuntimeError("nodeindex 1");
         unsigned int nodeIndex;
 
 
 
         if(dir==DL)
         {
+            //throw cRuntimeError("nodeindex 1");
             connectedUe = &dlConnectedUe_;
             userInfoVec = &dlTxParams_;
             history = &dlFeedbackHistory_;
@@ -1286,6 +1292,7 @@ void LteAmc::detachUser(MacNodeId nodeId, Direction dir)
         }
         else if(dir==UL)
         {
+            //throw cRuntimeError("nodeindex 2");
             connectedUe = &ulConnectedUe_;
             userInfoVec = &ulTxParams_;
             history = &ulFeedbackHistory_;
@@ -1293,10 +1300,17 @@ void LteAmc::detachUser(MacNodeId nodeId, Direction dir)
         }
         else if(dir==D2D)
         {
+            //
             connectedUe = &d2dConnectedUe_;
+
             userInfoVec = &d2dTxParams_;
+
             d2dHistory = &d2dFeedbackHistory_;
+            //throw cRuntimeError("nodeindex 2");
             nodeIndex = d2dNodeIndex_.at(nodeId);
+
+            EV<<"Node index: "<<nodeIndex<<endl;
+            //throw cRuntimeError("nodeindex 3");
         }
         else
         {
@@ -1317,6 +1331,7 @@ void LteAmc::detachUser(MacNodeId nodeId, Direction dir)
         }
         else   // D2D
         {
+            //throw cRuntimeError("nodeindex 4");
             std::map<MacNodeId, History_>::iterator ht =  d2dHistory->begin();
             for (; ht != d2dHistory->end(); ++ht)
             {
@@ -1366,6 +1381,7 @@ void LteAmc::attachUser(MacNodeId nodeId, Direction dir)
         history = &dlFeedbackHistory_;
         fbhbCapacity = fbhbCapacityDl_;
         numTxModes = DL_NUM_TXMODE;
+        EV<<"node Index Map size UL: "<<nodeIndexMap->size()<<endl;
     }
     else if(dir==UL)
     {
@@ -1376,6 +1392,7 @@ void LteAmc::attachUser(MacNodeId nodeId, Direction dir)
         history = &ulFeedbackHistory_;
         fbhbCapacity = fbhbCapacityUl_;
         numTxModes = UL_NUM_TXMODE;
+        EV<<"node Index Map size DL: "<<nodeIndexMap->size()<<endl;
     }
     else if(dir==D2D)
     {
@@ -1386,6 +1403,7 @@ void LteAmc::attachUser(MacNodeId nodeId, Direction dir)
         d2dHistory = &d2dFeedbackHistory_;
         fbhbCapacity = fbhbCapacityD2D_;
         numTxModes = UL_NUM_TXMODE;
+        EV<<"node Index Map size D2D: "<<nodeIndexMap->size()<<endl;
     }
     else
     {

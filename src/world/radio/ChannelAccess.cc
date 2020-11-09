@@ -41,6 +41,10 @@ ChannelAccess::~ChannelAccess()
              cc->unregisterRadio(myRadioRef);
         myRadioRef = NULL;
     }
+
+    if (hostModule) {
+        hostModule->unsubscribe(inet::IMobility::mobilityStateChangedSignal, this);
+    }
 }
 /**
  * Upon initialization ChannelAccess registers the nic parent module

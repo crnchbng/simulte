@@ -24,9 +24,13 @@ class LtePdcpRrcUeD2D : public LtePdcpRrcUe
 {
     // initialization flag for each D2D peer
     // it is set to true when the first IP datagram for that peer reaches the PDCP layer
-    std::map<L3Address, bool> d2dPeeringInit_;
 
-  protected:
+    bool dataArrival;
+    int retrievedPktId;
+    int retrievedCAMId;
+    std::map<const char*, bool> d2dPeeringInit_;
+protected:
+    virtual void initialize(int stage);
 
     virtual void handleMessage(cMessage *msg);
 
@@ -34,14 +38,27 @@ class LtePdcpRrcUeD2D : public LtePdcpRrcUe
     {
         delete lteInfo;
     }
+    void handleControlInfo(cPacket* upPkt, FlowControlInfoNonIp* lteInfo)
+    {
+        delete lteInfo;
+    }
 
     virtual MacNodeId getDestId(FlowControlInfo* lteInfo);
+    MacNodeId getDestId(FlowControlInfoNonIp* lteInfo)
+    {
+        // UE is subject to handovers: master may change
+        return binder_->getNextHop(nodeId_);
+    }
 
     Direction getDirection(MacNodeId destId)
     {
         if (binder_->getD2DCapability(nodeId_, destId) && binder_->getD2DMode(nodeId_, destId) == DM)
             return D2D;
         return UL;
+    }
+    Direction getDirection()
+    {
+        return D2D_MULTI;
     }
 
     /**
@@ -53,8 +70,13 @@ class LtePdcpRrcUeD2D : public LtePdcpRrcUe
     // handler for mode switch signal
     void pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMode);
 
-  public:
+    virtual void setDataArrivalStatus(bool);
+    virtual void finish();
 
+public:
+    virtual bool getDataArrivalStatus(){
+        return dataArrival;
+    }
 };
 
 #endif

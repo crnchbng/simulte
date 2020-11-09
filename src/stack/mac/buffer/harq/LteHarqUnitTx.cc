@@ -255,11 +255,18 @@ void LteHarqUnitTx::resetUnit()
 {
     transmissions_ = 0;
     pduId_ = -1;
-    if(pdu_ != NULL){
-        delete pdu_;
+    if(pdu_ != NULL)
+    {
+        EV<<"Reset PDU 1"<<endl;
+        EV<<"PDU: "<<pdu_<<endl;
+        EV<<"Owner: "<<pdu_->getOwner()->getName()<<endl;
+        //take(pdu_);
+        //delete pdu_;
         pdu_ = NULL;
     }
 
     status_ = TXHARQ_PDU_EMPTY;
     pduLength_ = 0;
+    EV<<"Reset PDU 2"<<endl;
+
 }

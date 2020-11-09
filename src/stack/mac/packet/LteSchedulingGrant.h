@@ -7,7 +7,11 @@
 // and cannot be removed from it.
 //
 
+#ifndef __ARTERY_LTESCHEDULINGGRANT_H_
+#define __ARTERY_LTESCHEDULINGGRANT_H_
+
 #include "stack/mac/packet/LteSchedulingGrant_m.h"
+//#include "stack/mac/packet/LteSidelinkGrant_m.h"
 #include "common/LteCommon.h"
 #include "stack/mac/amc/UserTxParams.h"
 
@@ -127,3 +131,8 @@ class LteSchedulingGrant : public LteSchedulingGrant_Base
         return direction_;
     }
 };
+
+#endif
+
+
+

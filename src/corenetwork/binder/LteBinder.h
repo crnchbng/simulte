@@ -19,8 +19,14 @@
 #include "corenetwork/binder/PhyPisaData.h"
 #include "corenetwork/nodes/ExtCell.h"
 #include "stack/mac/layer/LteMacBase.h"
-
+#include <vector>
+#include <math.h>
+#include <assert.h>
+#include <algorithm>
+#include <map>
+#include <iterator>
 using namespace inet;
+using namespace omnetpp;
 
 /**
  * The LTE Binder module has one instance in the whole network.
@@ -41,15 +47,17 @@ using namespace inet;
 
 class LteBinder : public cSimpleModule
 {
-  private:
+private:
     typedef std::map<MacNodeId, std::map<MacNodeId, bool> > DeployedUesMap;
 
     unsigned int numBands_;  // number of logical bands
     std::map<IPv4Address, MacNodeId> macNodeIdToIPAddress_;
+    std::map<long, MacNodeId> macNodeIdToNonIPAddress_;
     std::map<MacNodeId, char*> macNodeIdToModuleName_;
     std::map<MacNodeId, LteMacBase*> macNodeIdToModule_;
     std::vector<MacNodeId> nextHop_; // MacNodeIdMaster --> MacNodeIdSlave
     std::map<int, OmnetId> nodeIds_;
+    std::map<MacNodeId, std::map<MacNodeId, bool> > d2dPeeringCapability_;
 
     // list of static external cells. Used for intercell interference evaluation
     ExtCellList extCellList_;
@@ -62,6 +70,7 @@ class LteBinder : public cSimpleModule
 
     MacNodeId macNodeIdCounter_[3]; // MacNodeId Counter
     DeployedUesMap dMap_; // DeployedUes --> Master Mapping
+    QCIParameters QCIParam_[LTE_QCI_CLASSES];
 
     /*
      * Uplink interference support
@@ -86,6 +95,7 @@ class LteBinder : public cSimpleModule
     // determines if two D2D-capable UEs are communicating in D2D mode or Infrastructure Mode
     std::map<MacNodeId, std::map<MacNodeId, LteD2DMode> > d2dPeeringMap_;
 
+
     /*
      * Multicast support
      */
@@ -99,7 +109,16 @@ class LteBinder : public cSimpleModule
      */
     // store the id of the UEs that are performing handover
     std::set<MacNodeId> ueHandoverTriggered_;
-  protected:
+protected:
+
+    std::vector<double> periodicCamTransmissions;
+    std::pair<MacNodeId,double> camTransmissionsMap;
+    std::vector<std::pair<MacNodeId,double>> camTransmissionInfo;
+    MacNodeId ueId;
+    MacNodeId enbId;
+    MacNodeId rsuEnbId;
+    MacNodeId rsuUeId;
+    bool nodeRegisteredInSimlation;
     virtual void initialize(int stages);
 
     virtual int numInitStages() const { return INITSTAGE_LAST; }
@@ -108,13 +127,17 @@ class LteBinder : public cSimpleModule
     {
     }
 
-  public:
+
+public:
+    std::map<MacNodeId,inet::Coord> BroadcastUeInfo;
+    PhyPisaData phyPisaData;
+
     LteBinder()
     {
         macNodeIdCounter_[0] = ENB_MIN_ID;
         macNodeIdCounter_[1] = RELAY_MIN_ID;
         macNodeIdCounter_[2] = UE_MIN_ID;
-
+        macNodeIdCounter_[4] = RSUEnB_MIN_ID;
         ulTransmissionMap_.resize(2); // store transmission map of previous and current TTI
     }
 
@@ -130,6 +153,11 @@ class LteBinder : public cSimpleModule
             enbList_.pop_back();
         }
     }
+
+    int getQCIPriority(int);
+    double getPacketDelayBudget(int);
+    double getPacketErrorLossRate(int);
+
 
     /**
      * Registers a node to the global LteBinder module.
@@ -230,6 +258,17 @@ class LteBinder : public cSimpleModule
     }
 
     /**
+     * Non-IP based traffic
+     */
+
+    MacNodeId getMacNodeId(long address)
+    {
+        if (macNodeIdToNonIPAddress_.find(address) == macNodeIdToNonIPAddress_.end())
+            return 0;
+        return macNodeIdToNonIPAddress_[address];
+    }
+
+    /**
      * Returns the X2NodeId for the given IP address
      *
      * @param address IP address
@@ -249,6 +288,17 @@ class LteBinder : public cSimpleModule
     {
         macNodeIdToIPAddress_[address] = nodeId;
     }
+
+    /**
+     * Non-IP based traffic
+     */
+    void setMacNodeId(long address, MacNodeId nodeId)
+    {
+        macNodeIdToNonIPAddress_[address] = nodeId;
+    }
+
+    void addD2DCapability(MacNodeId src, MacNodeId dst);
+
     /**
      * Associates the given IP address with the given X2NodeId.
      *
@@ -281,7 +331,7 @@ class LteBinder : public cSimpleModule
      * of a given eNodeB
      */
     ConnectedUesMap getDeployedUes(MacNodeId localId, Direction dir);
-    PhyPisaData phyPisaData;
+
 
     int getNodeCount(){
         return nodeIds_.size();
@@ -304,9 +354,9 @@ class LteBinder : public cSimpleModule
     }
 
     std::vector<EnbInfo*> * getEnbList()
-    {
+            {
         return &enbList_;
-    }
+            }
 
     void addUeInfo(UeInfo* info)
     {
@@ -314,9 +364,24 @@ class LteBinder : public cSimpleModule
     }
 
     std::vector<UeInfo*> * getUeList()
-    {
+            {
         return &ueList_;
+            }
+
+
+    void addBroadcastUeList(MacNodeId nodeId, inet::Coord coordinates)
+    {
+
+        EV<<"Adding Broadcast UE List: "<<nodeId<<endl;
+
+        BroadcastUeInfo[nodeId] = coordinates;
     }
+
+    std::map<MacNodeId,inet::Coord> getBroadcastUeInfo()
+                {
+        return       BroadcastUeInfo;
+                }
+
 
     Cqi meanCqi(std::vector<Cqi> bandCqi,MacNodeId id,Direction dir);
 
@@ -361,6 +426,50 @@ class LteBinder : public cSimpleModule
     bool hasUeHandoverTriggered(MacNodeId nodeId);
     void removeUeHandoverTriggered(MacNodeId nodeId);
     void updateUeInfoCellId(MacNodeId nodeId, MacCellId cellId);
+
+    //periodic CAM transmissions
+    void updatePeriodicCamTransmissions(MacNodeId, double );
+
+    std::pair<MacNodeId,double>  getNextCamTransmission()
+                {
+        return camTransmissionsMap;
+                }
+
+    std::vector<std::pair<MacNodeId,double>> getCamUeinfo()
+                {
+        return camTransmissionInfo;
+                }
+
+    MacNodeId getEnbId()  {
+        return enbId;
+    }
+
+    void setEnbId(MacNodeId enbId) {
+        this->enbId = enbId;
+    }
+
+    MacNodeId getRsuEnbId()  {
+        return rsuEnbId;
+    }
+
+    void setRsuEnbId(MacNodeId rsuEnbId) {
+        this->rsuEnbId = rsuEnbId;
+    }
+    MacNodeId getUeId()  {
+        return ueId;
+    }
+
+    void setUeId(MacNodeId ueId) {
+        this->ueId = ueId;
+    }
+
+    bool isNodeRegisteredInSimlation()  {
+        return nodeRegisteredInSimlation;
+    }
+
+    void setNodeRegisteredInSimlation(bool nodeRegisteredInSimlation) {
+        this->nodeRegisteredInSimlation = nodeRegisteredInSimlation;
+    }
 };
 
 #endif

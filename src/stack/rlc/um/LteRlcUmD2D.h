@@ -48,7 +48,8 @@ class LteRlcUmD2D : public LteRlcUm
      * @return pointer to the TXBuffer for the CID of the flow
      *
      */
-    virtual UmTxEntity* getTxBuffer(FlowControlInfo* lteInfo);
+    virtual UmTxEntity* getTxBuffer(LteControlInfo* lteInfo);
+
 
     /**
      * UM Mode
@@ -66,14 +67,6 @@ class LteRlcUmD2D : public LteRlcUm
      * @param pkt packet to process
      */
     virtual void handleLowerMessage(cPacket *pkt);
-
-    /**
-     * deleteQueues() must be called on handover
-     * to delete queues for a given user
-     *
-     * @param nodeId Id of the node whose queues are deleted
-     */
-    virtual void deleteQueues(MacNodeId nodeId);
 
   private:
 

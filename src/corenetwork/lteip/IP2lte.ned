@@ -19,10 +19,12 @@ package lte.corenetwork.lteip;
 simple IP2lte
 {
     parameters:
+        @display("i=block/layer");
         string nodeType;    
         string interfaceTableModule;
         string routingTableModule;
-        @display("i=block/layer");
+        
+        
     gates:
         // connection to network layer.
         // These gate names are recognized by the network layer (same as the ones in the INic interface) 

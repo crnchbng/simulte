@@ -17,15 +17,18 @@ simple AlertSender like IUDPApp
         int localPort = default(-1);
         int destPort = default(3000);
         string destAddress;
-        int packetSize = default(10);
-        double period @unit("s") = default(0.02s);
+        int packetSize = default(100);
+        double period @unit("s") = default(0.1s);
         double startTime @unit("s") = default(0s);
         double stopTime @unit("s") = default(0s); // 0 means "never stops" 
         string interfaceTableModule;
-               
-        @signal[alertSentMsg];
-        @statistic[alertSentMsg](title="Alert messages sent"; unit=""; source="alertSentMsg"; record=sum,vector);
-
+        int pktId = default(1000);  
+        
+        //Statistics collection     
+        @signal[numberAlertGenerated];
+		@statistic[numberAlertGenerated](title="Number of Alert messages generated"; source="numberAlertGenerated"; record=vector,stats);
+		@signal[transmittedPacketId];
+		@statistic[transmittedPacketId](title="Number of Alert messages generated"; source="transmittedPacketId"; record=vector,stats);
         @display("i=block/source");
     gates:
         output udpOut;
