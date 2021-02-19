@@ -19,9 +19,16 @@ simple LteBinder
 {
     parameters:
         
-        // number of logical bands
+        //# number of logical bands - FDD bands
         int numBands = default(6);
-         
+        
+        //#QoS Parameters (strings)
+        string priority = "2 4 3 5 1 6 7 8 9";
+        string packetDelayBudget = "0.1 0.15 0.05 0.3 0.1 0.3 0.1 0.3 0.3";          // @unit(s)
+        string packetErrorLossRate = "1e-2 1e-3 1e-3 1e-6 1e-6 1e-6 1e-3 1e-6 1e-6";
         
         @display("i=block/cogwheel");
+         
+        
+     
 }
