@@ -63,6 +63,12 @@ simple LteCellInfo {
         
         /// number of RB, UL
         int numRbUl=default(100);
+        
+        ///Number of RB in one subchannel for SL-Mode 3 and mode 4 (to be retrieved by RRC-SIB 18 and SIB 21
+        //{n4, n5, n6, n8, n9, n10, n12, n15, n16, n18, n20, n25, n30, n48, n50, n72, n75, n96, n100} Number of PRBs per subchannel
+        int numRbSl = default(4);
+		int numSubchannelsSl = default(1); //{n1, n3, n5, n10, n15, n20}
+        
                 
         // number of sub-carriers per RB, DL
         int rbyDl = default(12);
@@ -70,17 +76,21 @@ simple LteCellInfo {
         // number of sub-carriers per RB, UL
         int rbyUl = default(12);
         
+        int rbySl = default(12);
+        
         // number of OFDM symbols per slot, DL
         int rbxDl = default(7);
         
         // number of OFDM symbols per slot, UL
         int rbxUl = default(7);
+        int rbxSl = default(7);
         
         // number of pilot REs per RB, DL
         int rbPilotDl = default(3);
         
         // number of pilot REs per RB, UL
         int rbPilotUl = default(0);
+        int rbPilotSl = default(0);
         
         // number of signaling symbols for RB, DL
         int signalDl = default(1);
