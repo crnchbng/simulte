@@ -28,67 +28,73 @@ class DasFilter;
 class SIMULTE_API LteCellInfo : public omnetpp::cSimpleModule
 {
   private:
-    /// reference to the global module binder
-    LteBinder *binder_;
-    /// Remote Antennas for eNB
-    RemoteAntennaSet *ruSet_;
+	/// reference to the global module binder
+	    LteBinder *binder_;
+	    /// Remote Antennas for eNB
+	    RemoteAntennaSet *ruSet_;
 
-    /// Cell Id
-    MacCellId cellId_;
+	    /// Cell Id
+	    MacCellId cellId_;
 
-    // MACRO_ENB or MICRO_ENB
-    EnbType eNbType_;
+	    // MACRO_ENB or MICRO_ENB
+	    EnbType eNbType_;
 
-    /// x playground lower bound
-    double pgnMinX_;
-    /// y playground lower bound
-    double pgnMinY_;
-    /// x playground upper bound
-    double pgnMaxX_;
-    /// y playground upper bound
-    double pgnMaxY_;
+	    /// x playground lower bound
+	    double pgnMinX_;
+	    /// y playground lower bound
+	    double pgnMinY_;
+	    /// x playground upper bound
+	    double pgnMaxX_;
+	    /// y playground upper bound
+	    double pgnMaxY_;
+	    /// z playground size
+	//    double pgnZ_;
+	    /// x eNB position
+	    double nodeX_;
+	    /// y eNB position
+	    double nodeY_;
+	    /// z eNB position
+	    double nodeZ_;
 
-    /// x eNB position
-    double nodeX_;
-    /// y eNB position
-    double nodeY_;
-    /// z eNB position
-    double nodeZ_;
+	    /// Number of DAS RU
+	    int numRus_;
+	    /// Remote and its CW
+	    std::map<Remote, int> antennaCws_;
 
-    /// Number of DAS RU
-    int numRus_;
-    /// Remote and its CW
-    std::map<Remote, int> antennaCws_;
+	    /// number of cell logical bands
+	    int numBands_;
+	    /// number of preferred bands to use (meaningful only in PREFERRED mode)
+	    int numPreferredBands_;
 
-    /// number of cell logical bands
-    int numBands_;
-    /// number of preferred bands to use (meaningful only in PREFERRED mode)
-    int numPreferredBands_;
+	    /// number of RB, DL
+	    int numRbDl_;
+	    /// number of RB, UL
+	    int numRbUl_;
+	    int numRbSl_;
+	    /// number of sub-carriers per RB, DL
+	    int rbyDl_;
+	    /// number of sub-carriers per RB, UL
+	    int rbyUl_;
+	    int rbySl_;
+	    /// number of OFDM symbols per slot, DL
+	    int rbxDl_;
+	    /// number of OFDM symbols per slot, UL
+	    int rbxUl_;
+	    int rbxSl_;
+	    /// number of pilot REs per RB, DL
+	    int rbPilotDl_;
+	    /// number of pilot REs per RB, UL
+	    int rbPilotUl_;
+	    int rbPilotSl_;
+	    /// number of signaling symbols for RB, DL
+	    int signalDl_;
+	    /// number of signaling symbols for RB, UL
+	    int signalUl_;
+	    /// MCS scale UL
+	    double mcsScaleUl_;
+	    /// MCS scale DL
+	    double mcsScaleDl_;
 
-    /// number of RB, DL
-    int numRbDl_;
-    /// number of RB, UL
-    int numRbUl_;
-    /// number of sub-carriers per RB, DL
-    int rbyDl_;
-    /// number of sub-carriers per RB, UL
-    int rbyUl_;
-    /// number of OFDM symbols per slot, DL
-    int rbxDl_;
-    /// number of OFDM symbols per slot, UL
-    int rbxUl_;
-    /// number of pilot REs per RB, DL
-    int rbPilotDl_;
-    /// number of pilot REs per RB, UL
-    int rbPilotUl_;
-    /// number of signaling symbols for RB, DL
-    int signalDl_;
-    /// number of signaling symbols for RB, UL
-    int signalUl_;
-    /// MCS scale UL
-    double mcsScaleUl_;
-    /// MCS scale DL
-    double mcsScaleDl_;
 
     // Position of each UE
     std::map<MacNodeId, inet::Coord> uePosition;
