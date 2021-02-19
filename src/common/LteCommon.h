@@ -75,6 +75,7 @@ public:
 #define TTI 0.001
 
 /// Current simulation time
+/// Current simulation time
 #define NOW omnetpp::simTime()
 
 /// Node Id bounds
@@ -83,13 +84,32 @@ public:
 #define RELAY_MIN_ID 257
 #define RELAY_MAX_ID 1023
 #define UE_MIN_ID 1025
-#define UE_MAX_ID 65535
+#define UE_MAX_ID 8000
+#define RSUEnB_MIN_ID 8001
+#define RSUEnB_MAX_ID 8050
+#define RSUUE_MIN_ID 8051
+#define RSUUE_MAX_ID 8100
+
+///CAM awareness distance
+#define CAM_AWARENESS_DISTANCE_HIGHWAY 200
+#define CAM_AWARENESS_DISTANCE_TUNNEL 100
+#define RSUEnB_RANGE 200
+#define RSUUE_RANGE 100
+
+//cell capacity
+#define CELLCAPACITYURBANMACRO 69
+
 
 /// Max Number of Codewords
 #define MAX_CODEWORDS 2
 
 // Number of QCI classes
 #define LTE_QCI_CLASSES 9
+
+
+#define MIN_COMPRESSED_HEADER_SIZE B(3)
+# define IN_GATE 0
+# define OUT_GATE 1
 
 /// MAC node ID
 typedef unsigned short MacNodeId;
@@ -335,13 +355,21 @@ struct SIMULTE_API LtePhyFrameTable
 };
 
 const LtePhyFrameTable phytypes[] = {
-    ELEM(DATAPKT),
-    ELEM(BROADCASTPKT),
-    ELEM(FEEDBACKPKT),
-    ELEM(HANDOVERPKT),
-    ELEM(GRANTPKT),
-    ELEM(D2DMODESWITCHPKT),
-    ELEM(UNKNOWN_TYPE)
+	    ELEM(DATAPKT),
+	    ELEM(BROADCASTPKT),
+	    ELEM(FEEDBACKPKT),
+	    ELEM(HANDOVERPKT),
+	    ELEM(RRCSETUPREQUESTPKT),
+	    ELEM(GRANTPKT),
+	    ELEM(SIDELINKGRANT),
+	    ELEM(MODE3GRANTREQUEST),
+	    ELEM(MODE3GRANTPKT),
+	    ELEM(DATAARRIVAL),
+	    ELEM(CSR),
+	    ELEM(CSRPKT),
+	    ELEM(SCIPKT),
+	    ELEM(D2DMODESWITCHPKT),
+	    ELEM(UNKNOWN_TYPE)
 };
 
 struct SIMULTE_API LteNodeTable
@@ -621,6 +649,8 @@ typedef std::map<std::string, omnetpp::cMsgPar> ParameterMap;
 
 SIMULTE_API const std::string dirToA(Direction dir);
 SIMULTE_API const std::string d2dModeToA(LteD2DMode mode);
+SIMULTE_API const std::string LteSidelinkModeToA(LteSidelinkMode mode);
+SIMULTE_API const std::string LteRrcStateToA(LteRrcState state);
 SIMULTE_API const std::string allocationTypeToA(RbAllocationType type);
 SIMULTE_API const std::string modToA(LteMod mod);
 SIMULTE_API const std::string periodicityToA(FbPeriodicity per);
@@ -733,14 +763,14 @@ std::vector<T> getTagsWithInherit(inet::Packet *pkt)
     // check if exist tag of that is derived from this.
     //
     for (unsigned int i = 0; i < tags.getNumTags(); i++) {
-        T * temp = dynamic_cast<T *> (tags.getTag(i));
+        auto tag = tags.getTagForUpdate(i);
+        auto temp = inet::dynamicPtrCast<T> (tag);
         if (temp != nullptr) {
-            t.push_back(*temp);
+            t.push_back(*temp.get());
         }
     }
     return t;
 }
-
 
 #endif
 
