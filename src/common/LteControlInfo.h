@@ -10,10 +10,9 @@
 #ifndef _LTE_LTECONTROLINFO_H_
 #define _LTE_LTECONTROLINFO_H_
 
-#include <vector>
-#include "common/LteCommon.h"
 #include "common/LteControlInfo_m.h"
-
+#include <vector>
+#include <omnetpp.h>
 class UserTxParams;
 
 /**
@@ -24,7 +23,7 @@ class UserTxParams;
  * and Remote Antennas Set
  *
  */
-class SIMULTE_API UserControlInfo : public UserControlInfo_Base
+class UserControlInfo : public UserControlInfo_Base
 {
   protected:
 

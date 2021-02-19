@@ -9,22 +9,21 @@
 
 #include "common/LteControlInfo.h"
 #include "stack/mac/amc/UserTxParams.h"
-
 using namespace inet;
 
 UserControlInfo::~UserControlInfo()
 {
-    if (userTxParams != nullptr)
+    if (userTxParams != NULL)
     {
         delete userTxParams;
-        userTxParams = nullptr;
+        userTxParams = NULL;
     }
 }
 
 UserControlInfo::UserControlInfo() :
     UserControlInfo_Base()
 {
-    userTxParams = nullptr;
+    userTxParams = NULL;
     grantedBlocks.clear();
 }
 
@@ -33,14 +32,14 @@ UserControlInfo& UserControlInfo::operator=(const UserControlInfo& other)
     if (&other == this)
         return *this;
 
-    if (other.userTxParams != nullptr)
+    if (other.userTxParams != NULL)
     {
         const UserTxParams* txParams = check_and_cast<const UserTxParams*>(other.userTxParams);
         this->userTxParams = txParams->dup();
     }
     else
     {
-        this->userTxParams = nullptr;
+        this->userTxParams = NULL;
     }
     this->grantedBlocks = other.grantedBlocks;
     this->senderCoord = other.senderCoord;
@@ -55,7 +54,7 @@ void UserControlInfo::setCoord(const inet::Coord& coord)
 
 void UserControlInfo::setUserTxParams(const UserTxParams *newParams)
 {
-    if(userTxParams != nullptr){
+    if(userTxParams != NULL){
         delete userTxParams;
     }
     userTxParams = newParams;
