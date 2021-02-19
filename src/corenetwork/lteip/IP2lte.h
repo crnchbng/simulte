@@ -11,7 +11,7 @@
 #define __SIMULTE_IP2LTE_H_
 
 #include <omnetpp.h>
-#include <inet/networklayer/common/InterfaceEntry.h>
+#include <inet/networklayer/common/NetworkInterface.h>
 
 #include "common/LteCommon.h"
 #include "common/LteControlInfo.h"
@@ -29,100 +29,100 @@ typedef std::pair<inet::Ipv4Address, inet::Ipv4Address> AddressPair;
 class SIMULTE_API IP2lte : public omnetpp::cSimpleModule
 {
 protected:
-    omnetpp::cGate *stackGateOut_;       // gate connecting IP2lte module to LTE stack
-    omnetpp::cGate *ipGateOut_;          // gate connecting IP2lte module to network layer
+	omnetpp::cGate *stackGateOut_;       // gate connecting IP2lte module to LTE stack
+	omnetpp::cGate *ipGateOut_;          // gate connecting IP2lte module to network layer
 
-    LteNodeType nodeType_;      // node type: can be ENODEB, UE
+	LteNodeType nodeType_;      // node type: can be ENODEB, UE
 
-    // datagram sequence numbers (one for each flow)
-    // TODO move numbering to PDCP
-    std::map<AddressPair, unsigned int> seqNums_;
+	// datagram sequence numbers (one for each flow)
+	// TODO move numbering to PDCP
+	std::map<AddressPair, unsigned int> seqNums_;
 
-    // obsolete with the above map
-    unsigned int seqNum_;       // datagram sequence number (RLC fragmentation needs it)
+	// obsolete with the above map
+	unsigned int seqNum_;       // datagram sequence number (RLC fragmentation needs it)
 
-    // reference to the binder
-    LteBinder* binder_;
+	// reference to the binder
+	LteBinder* binder_;
 
-    // MAC node id of this node
-    MacNodeId nodeId_;
+	// MAC node id of this node
+	MacNodeId nodeId_;
 
-    // corresponding entry for our interface
-    inet::InterfaceEntry* interfaceEntry;
+	// corresponding entry for our interface
+	inet::NetworkInterface* interfaceEntry;
 
-    /*
-     * Handover support
-     */
+	/*
+	 * Handover support
+	 */
 
-    // manager for the handover
-    LteHandoverManager* hoManager_;
-    // store the pair <ue,target_enb> for temporary forwarding of data during handover
-    std::map<MacNodeId, MacNodeId> hoForwarding_;
-    // store the UEs for temporary holding of data received over X2 during handover
-    std::set<MacNodeId> hoHolding_;
+	// manager for the handover
+	LteHandoverManager* hoManager_;
+	// store the pair <ue,target_enb> for temporary forwarding of data during handover
+	std::map<MacNodeId, MacNodeId> hoForwarding_;
+	// store the UEs for temporary holding of data received over X2 during handover
+	std::set<MacNodeId> hoHolding_;
 
-    typedef std::list<inet::Packet*> IpDatagramQueue;
-    std::map<MacNodeId, IpDatagramQueue> hoFromX2_;
-    std::map<MacNodeId, IpDatagramQueue> hoFromIp_;
+	typedef std::list<inet::Packet*> IpDatagramQueue;
+	std::map<MacNodeId, IpDatagramQueue> hoFromX2_;
+	std::map<MacNodeId, IpDatagramQueue> hoFromIp_;
 
-    bool ueHold_;
-    IpDatagramQueue ueHoldFromIp_;
-  protected:
-    /**
-     * Handle packets from transport layer and forward them to the stack
-     */
-    void fromIpUe(inet::Packet * datagram);
+	bool ueHold_;
+	IpDatagramQueue ueHoldFromIp_;
+protected:
+	/**
+	 * Handle packets from transport layer and forward them to the stack
+	 */
+	void fromIpUe(inet::Packet * datagram);
 
-    /**
-     * Manage packets received from Lte Stack
-     * and forward them to transport layer.
-     */
-    virtual void prepareForIpv4(inet::Packet *datagram, const inet::Protocol *protocol = &inet::Protocol::ipv4);
-    virtual void toIpUe(inet::Packet *datagram);
-    virtual void fromIpEnb(inet::Packet * datagram);
-    virtual void toIpEnb(inet::Packet * datagram);
-    virtual void toStackEnb(inet::Packet* datagram);
-    virtual void toStackUe(inet::Packet* datagram);
+	/**
+	 * Manage packets received from Lte Stack
+	 * and forward them to transport layer.
+	 */
+	virtual void prepareForIpv4(inet::Packet *datagram, const inet::Protocol *protocol = &inet::Protocol::ipv4);
+	virtual void toIpUe(inet::Packet *datagram);
+	virtual void fromIpEnb(inet::Packet * datagram);
+	virtual void toIpEnb(inet::Packet * datagram);
+	virtual void toStackEnb(inet::Packet* datagram);
+	virtual void toStackUe(inet::Packet* datagram);
 
-    /**
-     * utility: set nodeType_ field
-     *
-     * @param s string containing the node type ("enodeb", "ue")
-     */
-    void setNodeType(std::string s);
+	/**
+	 * utility: set nodeType_ field
+	 *
+	 * @param s string containing the node type ("enodeb", "ue")
+	 */
+	void setNodeType(std::string s);
 
-    /**
-     * utility: print LteStackControlInfo fields
-     *
-     * @param ci LteStackControlInfo object
-     */
-    void printControlInfo(inet::Packet* pkt);
-    void registerInterface();
-    void registerMulticastGroups();
+	/**
+	 * utility: print LteStackControlInfo fields
+	 *
+	 * @param ci LteStackControlInfo object
+	 */
+	void printControlInfo(inet::Packet* pkt);
+	void registerInterface();
+	void registerMulticastGroups();
 
-    virtual void initialize(int stage) override;
-    virtual int numInitStages() const override { return inet::INITSTAGE_LAST; }
-    virtual void handleMessage(omnetpp::cMessage *msg) override;
-    virtual void finish() override;
-  public:
+	virtual void initialize(int stage) override;
+	virtual int numInitStages() const override { return inet::INITSTAGE_LAST; }
+	virtual void handleMessage(omnetpp::cMessage *msg) override;
+	virtual void finish() override;
+public:
 
-    /*
-     * Handover management at the eNB side
-     */
-    void triggerHandoverSource(MacNodeId ueId, MacNodeId targetEnb);
-    void triggerHandoverTarget(MacNodeId ueId, MacNodeId sourceEnb);
-    void sendTunneledPacketOnHandover(inet::Packet* datagram, MacNodeId targetEnb);
-    void receiveTunneledPacketOnHandover(inet::Packet* datagram, MacNodeId sourceEnb);
-    void signalHandoverCompleteSource(MacNodeId ueId, MacNodeId targetEnb);
-    void signalHandoverCompleteTarget(MacNodeId ueId, MacNodeId sourceEnb);
+	/*
+	 * Handover management at the eNB side
+	 */
+	void triggerHandoverSource(MacNodeId ueId, MacNodeId targetEnb);
+	void triggerHandoverTarget(MacNodeId ueId, MacNodeId sourceEnb);
+	void sendTunneledPacketOnHandover(inet::Packet* datagram, MacNodeId targetEnb);
+	void receiveTunneledPacketOnHandover(inet::Packet* datagram, MacNodeId sourceEnb);
+	void signalHandoverCompleteSource(MacNodeId ueId, MacNodeId targetEnb);
+	void signalHandoverCompleteTarget(MacNodeId ueId, MacNodeId sourceEnb);
 
-    /*
-     * Handover management at the UE side
-     */
-    void triggerHandoverUe();
-    void signalHandoverCompleteUe();
+	/*
+	 * Handover management at the UE side
+	 */
+	void triggerHandoverUe();
+	void signalHandoverCompleteUe();
 
-    virtual ~IP2lte();
+	virtual ~IP2lte();
 };
 
 #endif
