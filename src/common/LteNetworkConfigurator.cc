@@ -33,12 +33,12 @@ void LteNetworkConfigurator::initialize(int stage){
     }
 }
 
-bool LteNetworkConfigurator::isWirelessInterface(InterfaceEntry *interfaceEntry)
+bool LteNetworkConfigurator::isWirelessInterface(NetworkInterface *NetworkInterface)
 {
-    // if interfaceEntry starts with any of given interface names.
+    // if NetworkInterface starts with any of given interface names.
     // starts with is needed to allow vector names like wlan0, wlan1, ...
     for(const auto& e : interfaceComparator){
-        if (!strncmp(interfaceEntry->getInterfaceName(), e.first.c_str(), e.second)){
+        if (!strncmp(NetworkInterface->getInterfaceName(), e.first.c_str(), e.second)){
             return true;
         }
     }
