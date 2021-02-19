@@ -54,7 +54,7 @@ enum GateDirection
 /// Lte Traffic Classes
 enum LteTrafficClass
 {
-    CONVERSATIONAL = 0; STREAMING =1;  INTERACTIVE = 2; BACKGROUND = 3; UNKNOWN_TRAFFIC_TYPE = 4;
+    CONVERSATIONAL = 0; STREAMING =1;  INTERACTIVE = 2; BACKGROUND = 3; CAM =4; ALERT=5;UNKNOWN_TRAFFIC_TYPE = 6;
 };
 
 /// Scheduler grant type
@@ -96,7 +96,8 @@ enum ApplicationType
     FTP = 4;
     GAMING = 5;
     FULLBUFFER = 6;
-    UNKNOWN_APP = 7;
+    GEONET=7;
+    UNKNOWN_APP = 8;
 };
 
 
@@ -188,15 +189,26 @@ enum Remote
 // Lte PHY Frame Types 
 enum LtePhyFrameType
 {
-    DATAPKT = 0;
-    BROADCASTPKT  = 1;
-    FEEDBACKPKT = 2;
-    HANDOVERPKT = 3;
-    HARQPKT = 4;
-    GRANTPKT = 5;
-    RACPKT = 6;
-    D2DMODESWITCHPKT = 7;
-    UNKNOWN_TYPE = 8;
+    DATAPKT=0;
+    BROADCASTPKT=1;
+    FEEDBACKPKT=2;
+    HANDOVERPKT=3;
+    HARQPKT=4;
+    GRANTPKT=5;
+    SIDELINKGRANT=6;
+    SYNC=7;
+    CSR=8;
+    CSRPKT=9;
+    RACPKT=10;
+    MODE3GRANTREQUEST=11;
+    MODE3GRANTPKT=12;
+    RRCSETUPREQUESTPKT=13;
+    MIBSLREQUESTPKT=14;
+    DATAARRIVAL=15;
+    SIB21REQUESTPKT=16;
+    SCIPKT=17;
+    D2DMODESWITCHPKT=18;
+    UNKNOWN_TYPE=19;
 };
 
 
@@ -207,7 +219,9 @@ enum LteNodeType
     ENODEB  = 1; /// eNodeB
     RELAY  = 2; /// Relay
     UE = 3; /// UE
-    UNKNOWN_NODE_TYPE  = 4;/// unknown
+    RSUEnB=4;
+    RSUUE=5;
+    UNKNOWN_NODE_TYPE  = 6;/// unknown
 };
 
 //  Subframe type 
@@ -281,5 +295,12 @@ enum EnbType
     MICRO_ENB = 1;
 };
 
+//*********************** LTE SIDELINK*****************************************
+enum LteSidelinkMode{
+    MODE3=0; MODE4=1;
+};
 
+enum LteRrcState{
+    RRC_IDLE=0; RRC_CONN=1;RRC_INACTIVE=2;
+};
 
