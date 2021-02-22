@@ -11,6 +11,7 @@
 #define _LTE_LTEMACBASE_H_
 
 #include "common/LteCommon.h"
+using namespace omnetpp;
 
 class LteHarqBufferTx;
 class LteHarqBufferRx;
@@ -55,7 +56,7 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
     friend class LteHarqBufferTxD2D;
     friend class LteHarqBufferRxD2D;
 
-  protected:
+  public:
 
     unsigned int totalOverflowedBytes_;
     ::omnetpp::simsignal_t macBufferOverflowDl_;
@@ -77,7 +78,8 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
      */
     ::omnetpp::cGate* up_[2];     /// RLC <--> MAC
     ::omnetpp::cGate* down_[2];   /// MAC <--> PHY
-
+    cGate* control_OUT;
+        cGate* control_IN;
     /*
      * MAC MIB Params
      */
@@ -125,6 +127,9 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
     /* LCG to CID and buffers map - used for supporting LCG - based scheduler operations
      * TODO : delete/update entries on hand-over
      */
+    bool ipBased;
+       int retrievedPacketId;
+       int retrievedCAMId;
     LcgMap lcgMap_;
     // Node Type;
     LteNodeType nodeType_;
@@ -134,10 +139,10 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
 
     // statistics in visualization
     bool statDisplay_;
-    inet::uint64 nrFromUpper_;
-    inet::uint64 nrFromLower_;
-    inet::uint64 nrToUpper_;
-    inet::uint64 nrToLower_;
+    uint64_t nrFromUpper_;
+    uint64_t nrFromLower_;
+    uint64_t nrToUpper_;
+    uint64_t nrToLower_;
 
   public:
 
@@ -257,7 +262,7 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
     // visualization
     void refreshDisplay() const override;
 
-  protected:
+  public:
 
     virtual int numInitStages() const override { return inet::NUM_INIT_STAGES; }
 
@@ -363,6 +368,34 @@ class SIMULTE_API LteMacBase : public omnetpp::cSimpleModule
 
     /// Lower Layer Handler
     virtual void fromPhy(omnetpp::cPacket *pkt);
+
+    //Non-IP related
+    void setIpBased(bool ip)
+        {
+            ip = true;
+        }
+        bool getIpBased()
+        {
+            return ipBased;
+        }
+
+        void setPacketId(int pid)
+        {
+            retrievedPacketId=pid;
+        }
+        int getPacketId()
+        {
+            return retrievedPacketId;
+        }
+
+        void setCAMId(int camid)
+        {
+            retrievedCAMId=camid;
+        }
+        int getCAMId()
+        {
+            return retrievedCAMId;
+        }
 };
 
 #endif
