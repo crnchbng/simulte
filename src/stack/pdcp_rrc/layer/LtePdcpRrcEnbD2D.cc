@@ -10,12 +10,8 @@
 #include "stack/pdcp_rrc/layer/LtePdcpRrcEnbD2D.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 #include "stack/d2dModeSelection/D2DModeSwitchNotification_m.h"
-#include "inet/common/packet/Packet.h"
 
 Define_Module(LtePdcpRrcEnbD2D);
-
-using namespace omnetpp;
-using namespace inet;
 
 /*
  * Upper Layer handlers
@@ -27,7 +23,7 @@ void LtePdcpRrcEnbD2D::fromDataPort(cPacket *pktAux)
     // Control Informations
 
     auto pkt = check_and_cast<Packet *>(pktAux);
-    auto lteInfo = pkt->getTag<FlowControlInfo>();
+    auto lteInfo = pkt->getTagForUpdate<FlowControlInfo>();
 
     setTrafficInformation(pkt, lteInfo);
     headerCompress(pkt);
@@ -156,17 +152,18 @@ void LtePdcpRrcEnbD2D::initialize(int stage)
 
 void LtePdcpRrcEnbD2D::handleMessage(cMessage* msg)
 {
-    auto pkt = check_and_cast<inet::Packet *>(msg);
-    auto chunk = pkt->peekAtFront<Chunk>();
+    cPacket* pkt = check_and_cast<cPacket *>(msg);
 
     // check whether the message is a notification for mode switch
-    if (inet::dynamicPtrCast<const D2DModeSwitchNotification>(chunk) != nullptr)
+    if (strcmp(pkt->getName(),"D2DModeSwitchNotification") == 0)
     {
         EV << "LtePdcpRrcEnbD2D::handleMessage - Received packet " << pkt->getName() << " from port " << pkt->getArrivalGate()->getName() << endl;
 
-        auto switchPkt = pkt->peekAtFront<D2DModeSwitchNotification>();
+        D2DModeSwitchNotification* switchPkt = check_and_cast<D2DModeSwitchNotification*>(pkt);
+
         // call handler
         pdcpHandleD2DModeSwitch(switchPkt->getPeerId(), switchPkt->getNewMode());
+
         delete pkt;
     }
     else

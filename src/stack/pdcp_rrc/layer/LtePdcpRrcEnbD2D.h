@@ -20,15 +20,15 @@
  * This is the PDCP/RRC layer of LTE Stack (with D2D support).
  *
  */
-class SIMULTE_API LtePdcpRrcEnbD2D : public LtePdcpRrcEnb
+class LtePdcpRrcEnbD2D : public LtePdcpRrcEnb
 {
 
   protected:
 
-    virtual void initialize(int stage) override;
-    virtual void handleMessage(omnetpp::cMessage* msg) override;
+    virtual void initialize(int stage);
+    virtual void handleMessage(cMessage* msg);
 
-    void handleControlInfo(omnetpp::cPacket* upPkt, FlowControlInfo* lteInfo) override
+    void handleControlInfo(cPacket* upPkt, FlowControlInfo* lteInfo)
     {
         delete lteInfo;
     }
@@ -37,7 +37,7 @@ class SIMULTE_API LtePdcpRrcEnbD2D : public LtePdcpRrcEnb
      * handler for data port
      * @param pkt incoming packet
      */
-    virtual void fromDataPort(omnetpp::cPacket *pkt) override;
+    virtual void fromDataPort(cPacket *pkt);
 
     void pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMode);
 
