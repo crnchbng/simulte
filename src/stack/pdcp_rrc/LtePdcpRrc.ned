@@ -17,13 +17,18 @@ moduleinterface LtePdcpRrc {
     parameters:
         @display("i=block/fork");
         int headerCompressedSize @unit(B);
-
+        bool ipBased;
+        string nodeType;
     gates:
-        inout DataPort;
+        input DataPortIpIn;
+        input DataPortNonIpIn;
+        output DataPortIpOut;
+        output DataPortNonIpOut;
         inout EUTRAN_RRC_Sap;
         inout TM_Sap;
         inout UM_Sap;
         inout AM_Sap;
+        inout control;
 }
 
 
@@ -38,7 +43,8 @@ simple LtePdcpRrcBase like LtePdcpRrc {
         int streamingRlc @enum(TM, UM, AM, UNKNOWN_RLC_TYPE) = default(1);
         int interactiveRlc @enum(TM, UM, AM, UNKNOWN_RLC_TYPE) = default(1);
         int backgroundRlc @enum(TM, UM, AM, UNKNOWN_RLC_TYPE) = default(1);
-
+        bool ipBased;
+        string nodeType;
         //# Statistics
         @signal[receivedPacketFromUpperLayer];
         @statistic[receivedPacketFromUpperLayer](source="receivedPacketFromUpperLayer"; record=count,"sum(packetBytes)","vector(packetBytes)"; interpolationmode=none);
@@ -48,33 +54,42 @@ simple LtePdcpRrcBase like LtePdcpRrc {
         @statistic[sentPacketToUpperLayer](source="sentPacketToUpperLayer"; record=count,"sum(packetBytes)","vector(packetBytes)"; interpolationmode=none);
         @signal[sentPacketToLowerLayer];
         @statistic[sentPacketToLowerLayer](source="sentPacketToLowerLayer"; record=count,"sum(packetBytes)","vector(packetBytes)"; interpolationmode=none);
-    gates:
+    	 @signal[numberAlertGenerated];
+		@statistic[numberAlertGenerated](title="Number of Alert messages generated"; source="numberAlertGenerated"; record=vector,stats);
+    
+        gates:
         //#
         //# Gates connecting UE/eNB and PDCP/RRC Layer
         //#
         //# Data Ports
-
-        inout DataPort;            // Port to transmit data packets
-
+        
+        input DataPortIpIn;
+        input DataPortNonIpIn;
+        output DataPortIpOut;
+        output DataPortNonIpOut;
+        
         //# Control Ports
-
+        
         inout EUTRAN_RRC_Sap;    // Control of RRC Layer
-
+        inout control;
+        
         //#
         //# Gates connecting PDCP/RRC and RLC Layer
         //#
         //# Data Ports
-
+        
         inout TM_Sap;            // Transparent Mode SAP
         inout UM_Sap;            // Unacknowledged Mode SAP
         inout AM_Sap;            // Acknowledged Mode SAP
+        
+        
 }
 
 //
 // User Equipment PDCP/RRC layer of LTE stack
 //
 simple LtePdcpRrcUe extends LtePdcpRrcBase {
-    @class("LtePdcpRrcUe");
+        @class("LtePdcpRrcUe");
 }
 
 //
@@ -89,14 +104,14 @@ simple LtePdcpRrcUeD2D extends LtePdcpRrcUe {
 // eNodeB PDCP/RRC layer of LTE stack
 //
 simple LtePdcpRrcEnb extends LtePdcpRrcBase {
-    @class("LtePdcpRrcEnb");
+        @class("LtePdcpRrcEnb");
 }
 
 //
 // D2D-capable eNodeB PDCP/RRC layer of LTE stack
 //
 simple LtePdcpRrcEnbD2D extends LtePdcpRrcEnb {
-    @class("LtePdcpRrcEnbD2D");
+        @class("LtePdcpRrcEnbD2D");
 }
 
 //
@@ -104,7 +119,7 @@ simple LtePdcpRrcEnbD2D extends LtePdcpRrcEnb {
 // Connection: eNodeB <--> Relay
 //
 simple LtePdcpRrcRelayUe extends LtePdcpRrcBase {
-    @class("LtePdcpRrcRelayUe");
+        @class("LtePdcpRrcRelayUe");
 }
 
 //
@@ -112,5 +127,5 @@ simple LtePdcpRrcRelayUe extends LtePdcpRrcBase {
 // Connection: Relay <--> UE
 //
 simple LtePdcpRrcRelayEnb extends LtePdcpRrcBase {
-    @class("LtePdcpRrcRelayEnb");
+        @class("LtePdcpRrcRelayEnb");
 }
