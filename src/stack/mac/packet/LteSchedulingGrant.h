@@ -7,9 +7,14 @@
 // and cannot be removed from it.
 //
 
+#ifndef __ARTERY_LTESCHEDULINGGRANT_H_
+#define __ARTERY_LTESCHEDULINGGRANT_H_
+
 #include "stack/mac/packet/LteSchedulingGrant_m.h"
 #include "common/LteCommon.h"
 #include "stack/mac/amc/UserTxParams.h"
+
+using namespace omnetpp;
 
 class UserTxParams;
 
@@ -54,6 +59,12 @@ private:
             userTxParams = nullptr;
         }
     }
+    /*LteSchedulingGrant(const char *name = NULL, int kind = 0)
+    {
+        userTxParams = NULL;
+        grantedCwBytes.resize(MAX_CODEWORDS);
+    }
+*/
 
     LteSchedulingGrant(const LteSchedulingGrant& other) : LteSchedulingGrant_Base(other)
     {
@@ -142,3 +153,4 @@ private:
         return direction_;
     }
 };
+#endif
