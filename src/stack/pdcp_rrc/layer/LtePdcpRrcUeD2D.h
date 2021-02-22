@@ -20,43 +20,68 @@
  * This is the PDCP/RRC layer of LTE Stack (with D2D support).
  *
  */
-class SIMULTE_API LtePdcpRrcUeD2D : public LtePdcpRrcUe
+class LtePdcpRrcUeD2D : public LtePdcpRrcUe
 {
-    // initialization flag for each D2D peer
-    // it is set to true when the first IP datagram for that peer reaches the PDCP layer
-    std::map<inet::L3Address, bool> d2dPeeringInit_;
+	// initialization flag for each D2D peer
+	// it is set to true when the first IP datagram for that peer reaches the PDCP layer
 
-  protected:
+	bool dataArrival;
+	int retrievedPktId;
+	int retrievedCAMId;
+	std::map<const char*, bool> d2dPeeringInit_;
+	unsigned int headerLength;
+	std::string portName;
+	omnetpp::cGate* gate;
+	LogicalCid mylcid;
+	LtePdcpEntity* entity;
+protected:
+	virtual void initialize(int stage);
 
-    virtual void handleMessage(omnetpp::cMessage *msg) override;
+	virtual void handleMessage(cMessage *msg);
 
-    void handleControlInfo(omnetpp::cPacket* upPkt, FlowControlInfo* lteInfo) override
-    {
-        delete lteInfo;
-    }
+	void handleControlInfo(cPacket* upPkt, inet::Ptr<FlowControlInfo> lteInfo)
+	{
+		//delete lteInfo;
+	}
+	void handleControlInfo(cPacket* upPkt, inet::Ptr<FlowControlInfoNonIp> lteInfo)
+	{
+		//delete lteInfo;
+	}
 
-    virtual MacNodeId getDestId(FlowControlInfo* lteInfo) override;
+	virtual MacNodeId getDestId(inet::Ptr<FlowControlInfo> lteInfo);
+	MacNodeId getDestId(inet::Ptr<FlowControlInfoNonIp> lteInfo)
+	{
+		// UE is subject to handovers: master may change
+		return binder_->getNextHop(nodeId_);
+	}
 
-    using LtePdcpRrcUe::getDirection;  // base class variant: return direction for comm. with eNB
-    // additional getDirection method determining if D2D comm. is available to a specific destination
-    Direction getDirection(MacNodeId destId)
-    {
-        if (binder_->getD2DCapability(nodeId_, destId) && binder_->getD2DMode(nodeId_, destId) == DM)
-            return D2D;
-        return UL;
-    }
+	Direction getDirection(MacNodeId destId)
+	{
+		if (binder_->getD2DCapability(nodeId_, destId) && binder_->getD2DMode(nodeId_, destId) == DM)
+			return D2D;
+		return UL;
+	}
+	Direction getDirection()
+	{
+		return D2D_MULTI;
+	}
 
-    /**
-     * handler for data port
-     * @param pkt incoming packet
-     */
-    virtual void fromDataPort(omnetpp::cPacket *pkt) override;
+	/**
+	 * handler for data port
+	 * @param pkt incoming packet
+	 */
+	virtual void fromDataPort(cPacket *pkt);
 
-    // handler for mode switch signal
-    void pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMode);
+	// handler for mode switch signal
+	void pdcpHandleD2DModeSwitch(MacNodeId peerId, LteD2DMode newMode);
 
-  public:
+	virtual void setDataArrivalStatus(bool);
+	virtual void finish();
 
+public:
+	virtual bool getDataArrivalStatus(){
+		return dataArrival;
+	}
 };
 
 #endif
