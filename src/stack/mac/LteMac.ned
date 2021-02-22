@@ -17,13 +17,13 @@ moduleinterface LteMac {
     parameters:
         @display("i=block/mac");
         string interfaceTableModule;
-        string interfaceName;
-   
+        
     gates:
         input RLC_to_MAC;    // RLC to MAC
         output MAC_to_RLC;    // MAC to RLC
         input PHY_to_MAC;    // PHY to MAC
         output MAC_to_PHY;    // MAC to PHY
+        inout control;
 }
 
 // 
@@ -33,21 +33,17 @@ simple LteMacBase like LteMac {
     parameters:
         @display("i=block/mac");
         string interfaceTableModule;
-        string interfaceName = default("cellular");
-
+        
         //# Mac Queues
         int queueSize @unit(B) = default(2MiB);              // MAC Buffers queue size
         
         //# Mac MIB
         bool muMimo = default(true);
-                       
+        
         //# H-ARQ
         int harqProcesses = default(8);
         int maxHarqRtx = default(3);
         
-        //# Statistics display (in GUI)
-        bool statDisplay = default(false);
-         
         //#
         //# Statistics recording
         //#
@@ -76,7 +72,7 @@ simple LteMacBase like LteMac {
         @signal[macBufferOverFlowUl];
         @statistic[macBufferOverFlowUl](title="Mac buffer overflow as function of time"; unit="Byte/s"; source="macBufferOverFlowUl"; record=mean);
         @signal[macBufferOverFlowD2D];
-    	@statistic[macBufferOverFlowD2D](title="Mac buffer overflow as function of time"; unit="Byte/s"; source="macBufferOverFlowD2D"; record=mean);
+        @statistic[macBufferOverFlowD2D](title="Mac buffer overflow as function of time"; unit="Byte/s"; source="macBufferOverFlowD2D"; record=mean);
         @signal[harqErrorRateUl];
         @statistic[harqErrorRateUl](title="Harq Error Rate Ul"; unit=""; source="harqErrorRateUl"; record=mean,vector);
         @signal[harqErrorRateDl];
@@ -107,7 +103,7 @@ simple LteMacBase like LteMac {
         @statistic[sentPacketToLowerLayer](source="sentPacketToLowerLayer"; record=count,"sum(packetBytes)","vector(packetBytes)"; interpolationmode=none);
         @signal[measuredItbs];
         @statistic[measuredItbs](title="TBS index"; unit=""; source="measuredItbs"; record=mean,vector);
-
+        
     gates:
         //# 
         //# Gates connecting RLC and MAC Layers
@@ -122,6 +118,7 @@ simple LteMacBase like LteMac {
         
         input PHY_to_MAC;    // PHY to MAC
         output MAC_to_PHY;    // MAC to PHY
+        inout control;
 }
 
 //
@@ -129,7 +126,7 @@ simple LteMacBase like LteMac {
 //
 simple LteMacUe extends LteMacBase 
 {
-   
+        
     parameters:
         @class("LteMacUe");
 }
@@ -140,10 +137,10 @@ simple LteMacUe extends LteMacBase
 simple LteMacUeD2D extends LteMacUe {
     parameters:
         @class("LteMacUeD2D");
-    
+        
         bool usePreconfiguredTxParams = default(false);
         int d2dCqi = default(7);
-        
+        xml txConfig;
         @signal[harqErrorRate_1st_D2D];
         @statistic[harqErrorRate_1st_D2D](title="Harq Error Rate D2D 1st Tx"; unit=""; source="harqErrorRate_1st_D2D"; record=mean,vector);
         @signal[harqErrorRate_2nd_D2D];
@@ -163,18 +160,19 @@ simple LteMacUeD2D extends LteMacUe {
         
         @signal[rcvdD2DModeSwitchNotification];
         @statistic[rcvdD2DModeSwitchNotification](title="Reception of mode switch notification (tx side)"; unit=""; source="rcvdD2DModeSwitchNotification"; record=count,vector);
+        
 }
 
 //
 // eNodeB MAC layer of LTE stack
 //
 simple LteMacEnb extends LteMacBase {
-    
+        
     parameters:
         
         @class("LteMacEnb");    
         
-        //# volatile xml optSolution = default(xmldoc("solution.sol"));
+        volatile xml optSolution = default(xmldoc("solution.sol"));
         
         //#
         //# AMC Parameters
@@ -188,31 +186,31 @@ simple LteMacEnb extends LteMacBase {
         
         // resource allocation type ("distributed" or "localized")
         string rbAllocationType = default("localized");
-
+        
         // summary feedback confidence function lower bound
         double summaryLowerBound @unit(s) = default(5ms);
-
+        
         // summary feedback confidence function upper bound
         double summaryUpperBound @unit(s) = default(20ms);
-
+        
         // FeedBack Historical Base capacity in DL (number of stored feedback samples per UE) 
         int fbhbCapacityDl = default(5);
-
+        
         // FeedBack Historical Base capacity in UL (number of stored feedback samples per UE)
         int fbhbCapacityUl = default(5);
-
+        
         // FeedBack Historical Base capacity in D2D (number of stored feedback samples per UE)
         int fbhbCapacityD2D = default(5);
         
         // wideband PMI generation parameter (0.0 means "use the mean value" )        
         double pmiWeight = default(0.0);
-
+        
         // wideband CQI generation parameter (0.0 means "use the mean value" )
         double cqiWeight = default(0.0);
-
+        
         // AMC k CQI: used in DAS AMC mode
         int kCqi = default(0);
-       
+        
         // number of eNodeBs - set to 0 if unknown
         int eNodeBCount = default(0);
         //#
@@ -221,7 +219,7 @@ simple LteMacEnb extends LteMacBase {
         // Scheduling discipline. See LteCommon.h for discipline meaning.
         string schedulingDisciplineDl = default("MAXCI");
         string schedulingDisciplineUl = default("MAXCI");
-
+        
         // Grant type DL
         string grantTypeConversationalDl = default("FITALL");
         string grantTypeStreamingDl      = default("FITALL");
@@ -233,13 +231,13 @@ simple LteMacEnb extends LteMacBase {
         int grantSizeStreamingDl      = default(-1);
         int grantSizeInteractiveDl    = default(-1);
         int grantSizeBackgroundDl     = default(-1);
-
+        
         // Grant type Ul
         string grantTypeConversationalUl = default("FITALL");
         string grantTypeStreamingUl      = default("FITALL");
         string grantTypeInteractiveUl    = default("FITALL");
         string grantTypeBackgroundUl     = default("FITALL");
-
+        
         // Grant Size Ul in bytes (-1 means max grant, i.e. 4GB)
         int grantSizeConversationalUl = default(-1);
         int grantSizeStreamingUl      = default(-1);
@@ -261,7 +259,7 @@ simple LteMacEnb extends LteMacBase {
         int lteAallocationRbsUl = default(1);
         int lteAhistorySizeUL = default(20);
         int lteAgainHistoryThUL = default(5);
-            
+        
         // LTE Advanced Scheduler QOS Parameters - DL
         double lteAdeadlineCONVERSATIONALDL @unit(s) = default(200ms);
         double lteAdeadlineSTREAMINGDL @unit(s) = default(1000ms);
@@ -273,14 +271,14 @@ simple LteMacEnb extends LteMacBase {
         double lteAslackTermINTERACTIVEDL @unit(s) = default(10ms);
         double lteAslackTermBACKGROUNDDL @unit(s) = default(0ms);
         
-        int lteAmaxUrgentBurstCONVERSATIONALDL @unit(byte) = default(0B);
-        int lteAmaxUrgentBurstSTREAMINGDL @unit(byte)     = default(0B);
-        int lteAmaxUrgentBurstINTERACTIVEDL @unit(byte)    = default(0B);
+        int lteAmaxUrgentBurstCONVERSATIONALDL @unit(byte) = default(0);
+        int lteAmaxUrgentBurstSTREAMINGDL @unit(byte)     = default(0);
+        int lteAmaxUrgentBurstINTERACTIVEDL @unit(byte)    = default(0);
         int lteAmaxUrgentBurstBACKGROUNDDL   @unit(byte)  = default(200B);
         
-        int lteAmaxFairnessBurstCONVERSATIONALDL @unit(byte) = default(0B);
-        int lteAmaxFairnessBurstSTREAMINGDL @unit(byte)     = default(0B);
-        int lteAmaxFairnessBurstINTERACTIVEDL @unit(byte)    = default(0B);
+        int lteAmaxFairnessBurstCONVERSATIONALDL @unit(byte) = default(0);
+        int lteAmaxFairnessBurstSTREAMINGDL @unit(byte)     = default(0);
+        int lteAmaxFairnessBurstINTERACTIVEDL @unit(byte)    = default(0);
         int lteAmaxFairnessBurstBACKGROUNDDL   @unit(byte)  = default(200B);
         
         // LTE Advanced Scheduler QOS Parameters - UL
@@ -294,17 +292,17 @@ simple LteMacEnb extends LteMacBase {
         double lteAslackTermINTERACTIVEUL @unit(s) = default(500ms);
         double lteAslackTermBACKGROUNDUL @unit(s) = default(0ms);
         
-        int lteAmaxBurstCONVERSATIONALUL @unit(byte) = default(0B);
-        int lteAmaxBurstSTREAMINGUL     @unit(byte) = default(0B);
-        int lteAmaxBurstINTERACTIVEUL   @unit(byte) = default(0B);
-        int lteAmaxBurstBACKGROUNDUL    @unit(byte) = default(0B);
+        int lteAmaxBurstCONVERSATIONALUL @unit(byte) = default(0);
+        int lteAmaxBurstSTREAMINGUL     @unit(byte) = default(0);
+        int lteAmaxBurstINTERACTIVEUL   @unit(byte) = default(0);
+        int lteAmaxBurstBACKGROUNDUL    @unit(byte) = default(0);
         
         // LTE Advanced Scheduler PF Version - DL
         bool pfTmsAwareDL = default(false);
         // LTE Advanced Scheduler PF Version - UL
         bool pfTmsAwareUL = default(false);
         
-
+        
         // Power Model Parameters for MBSFN frame
         // minimum depleted power (W)
         double zeroLevelMBSFNDL @unit(W)= default(260W); //504
@@ -429,8 +427,8 @@ simple LteMacEnbD2D extends LteMacEnb
 {
     parameters:
         @class("LteMacEnbD2D"); 
-       
-	    bool usePreconfiguredTxParams = default(false);
+        
+        bool usePreconfiguredTxParams = default(false);
         int d2dCqi = default(7);
         
         // frequency reuse parameters
@@ -455,7 +453,7 @@ simple LteMacEnbD2D extends LteMacEnb
         @signal[macCellPacketLossD2D];
         @statistic[macCellPacketLossD2D](title="Mac Cell Packet Loss D2D"; unit=""; source="macCellPacketLossD2D"; record=mean);
 }
-      
+
 
 //
 // Relay (UE side) MAC layer of LTE stack
@@ -463,7 +461,7 @@ simple LteMacEnbD2D extends LteMacEnb
 //
 simple LteMacRelayUe extends LteMacUe 
 {
-    @class("LteMacRelayUe");
+        @class("LteMacRelayUe");
 }
 
 //
@@ -472,5 +470,5 @@ simple LteMacRelayUe extends LteMacUe
 //
 simple LteMacRelayEnb extends LteMacEnb 
 {
-    @class("LteMacRelayEnb");
+        @class("LteMacRelayEnb");
 }
