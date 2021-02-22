@@ -87,7 +87,7 @@ Packet* LteMacUeD2D::makeBsr(int size){
 
 void LteMacUeD2D::macPduMake(MacCid cid)
 {
-    int64 size = 0;
+    int64_t size = 0;
 
     macPduList_.clear();
 
@@ -125,7 +125,7 @@ void LteMacUeD2D::macPduMake(MacCid cid)
         {
             // Call the appropriate function for make a BSR for a D2D communication
             auto macPktBsr = makeBsr(sizeBsr);
-            auto info = macPktBsr->getTag<UserControlInfo>();
+            auto info = macPktBsr->getTagForUpdate<UserControlInfo>();
             if (bsrD2DMulticastTriggered_)
             {
                 info->setLcid(D2D_MULTI_SHORT_BSR);
@@ -224,10 +224,10 @@ void LteMacUeD2D::macPduMake(MacCid cid)
 
                 if (infoVec.empty())
                     throw cRuntimeError("No tag of type LteControlInfo found");
-                int32 groupId =  infoVec.front().getMulticastGroupId();
+                int32_t groupId =  infoVec.front().getMulticastGroupId();
 
                 if (groupId >= 0) // for unicast, group id is -1
-                    macPkt->getTag<UserControlInfo>()->setMulticastGroupId(groupId);
+                    macPkt->getTagForUpdate<UserControlInfo>()->setMulticastGroupId(groupId);
 
                 drop(pkt);
 
@@ -271,7 +271,7 @@ void LteMacUeD2D::macPduMake(MacCid cid)
             // The tx buffer does not exist yet for this mac node id, create one
             LteHarqBufferTx* hb;
             // FIXME: hb is never deleted
-            auto info = pit->second->getTag<UserControlInfo>();
+            auto info = pit->second->getTagForUpdate<UserControlInfo>();
             
             if (info->getDirection() == UL) {
                 hb = new LteHarqBufferTx((unsigned int) ENB_TX_HARQ_PROCESSES, this, (LteMacBase*) getMacByMacNodeId(destId));
@@ -404,7 +404,7 @@ void LteMacUeD2D::handleMessage(cMessage* msg)
 
     if (incoming == down_[IN_GATE])
     {
-        auto userInfo = pkt->getTag<UserControlInfo>();
+        auto userInfo = pkt->getTagForUpdate<UserControlInfo>();
         
         if (userInfo->getFrameType() == D2DMODESWITCHPKT)
         {
@@ -685,7 +685,7 @@ void LteMacUeD2D::handleSelfMessage()
             for (; cit != cwListRetx.end(); ++cit)
             {
                 Codeword cw = *cit;
-                auto info = currHarq->getProcess(currentHarq_)->getPdu(cw)->getTag<UserControlInfo>();
+                auto info = currHarq->getProcess(currentHarq_)->getPdu(cw)->getTagForUpdate<UserControlInfo>();
                 if (info->getDirection() == schedulingGrant_->getDirection())
                 {
                     checkDir = true;
