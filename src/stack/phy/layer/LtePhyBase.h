@@ -173,7 +173,7 @@ class SIMULTE_API LtePhyBase : public ChannelAccess
         return txAngle_;
     }
 
-  protected:
+  public:
 
     /**
      * Performs initialization operations to prepare gates' IDs, analog models,
@@ -220,6 +220,7 @@ class SIMULTE_API LtePhyBase : public ChannelAccess
      * Delay is calculated based on sender's and receiver's positions.
      */
     virtual void sendUnicast(LteAirFrame *airFrame);
+    void sendUpperPackets(cMessage* msg);
 
   protected:
 

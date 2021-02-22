@@ -148,7 +148,7 @@ void LtePhyBase::handleUpperMessage(cMessage* msg)
     lteInfo->setCoord(getRadioPosition());
 
     lteInfo->setTxPower(txPower_);
-    frame->setControlInfo(lteInfo);
+    frame->setControlInfo(lteInfo.get()->dup());
 
     EV << "LtePhy: " << nodeTypeToA(nodeType_) << " with id " << nodeId_
        << " sending message to the air channel. Dest=" << lteInfo->getDestId() << endl;
@@ -197,7 +197,7 @@ void LtePhyBase::sendMulticast(LteAirFrame *frame)
     UserControlInfo *ci = check_and_cast<UserControlInfo *>(frame->getControlInfo());
 
     // get the group Id
-    inet::int32 groupId = ci->getMulticastGroupId();
+    int32_t groupId = ci->getMulticastGroupId();
     if (groupId < 0)
         throw cRuntimeError("LtePhyBase::sendMulticast - Error. Group ID %d is not valid.", groupId);
 
@@ -261,6 +261,13 @@ void LtePhyBase::sendUnicast(LteAirFrame *frame)
     sendDirect(frame, 0, frame->getDuration(), receiver, getReceiverGateIndex(receiver));
 
     return;
+}
+
+void LtePhyBase::sendUpperPackets(cMessage* msg)
+{
+    // Send message
+    send(msg,upperGateOut_);
+
 }
 
 int LtePhyBase::getReceiverGateIndex(const omnetpp::cModule *receiver) const
