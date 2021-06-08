@@ -75,7 +75,7 @@ void IP2lte::initialize(int stage)
             //nodeId_ = binder_->registerNode(ue, nodeType_, ue->par("masterId"));
             nodeId_ = binder_->getUeId();
             binder_->setUeId(nodeId_);
-            //binder_->registerNextHop(binder_->getEnbId(), nodeId_);
+            binder_->registerNextHop(binder_->getEnbId(), nodeId_);
             registerInterface();
 
             // if the UE has been created dynamically, we need to manually add a default route having "wlan" as output interface
